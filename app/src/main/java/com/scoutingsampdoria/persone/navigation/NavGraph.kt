@@ -134,6 +134,7 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
         composable(Rotte.CONFIG) {
             ConfigScreen(
                 viewModel = configViewModel,
+                personeViewModel = personeViewModel,
                 onIndietro = { navController.popBackStack() },
                 onDatiCambiati = {
                     personeViewModel.caricaLista()
