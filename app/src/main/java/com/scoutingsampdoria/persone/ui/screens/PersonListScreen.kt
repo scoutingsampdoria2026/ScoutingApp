@@ -27,9 +27,11 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
@@ -47,6 +49,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -134,11 +137,74 @@ fun PersonListScreen(
                     },
                     actions = {
                         if (isAdmin) {
-                            IconButton(onClick = onConfigurazione) {
-                                Icon(
-                                    Icons.Filled.Settings,
-                                    contentDescription = "Configurazione",
-                                    tint = MaterialTheme.colorScheme.onPrimary
+                            var menuImpostazioniAperto by remember { mutableStateOf(false) }
+                            var mostraDialogHelp by remember { mutableStateOf(false) }
+
+                            Box {
+                                IconButton(onClick = { menuImpostazioniAperto = true }) {
+                                    Icon(
+                                        Icons.Filled.Settings,
+                                        contentDescription = "Impostazioni",
+                                        tint = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = menuImpostazioniAperto,
+                                    onDismissRequest = { menuImpostazioniAperto = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Configurazione") },
+                                        leadingIcon = { Icon(Icons.Filled.Settings, contentDescription = null) },
+                                        onClick = {
+                                            menuImpostazioniAperto = false
+                                            onConfigurazione()
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Help") },
+                                        leadingIcon = { Icon(Icons.Filled.Info, contentDescription = null) },
+                                        onClick = {
+                                            menuImpostazioniAperto = false
+                                            mostraDialogHelp = true
+                                        }
+                                    )
+                                }
+                            }
+
+                            if (mostraDialogHelp) {
+                                AlertDialog(
+                                    onDismissRequest = { mostraDialogHelp = false },
+                                    title = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Filled.Info, contentDescription = null, tint = SampColors.Blu)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text("Informazioni", fontWeight = FontWeight.Bold)
+                                        }
+                                    },
+                                    text = {
+                                        Column {
+                                            Text(
+                                                "Scouting Sampdoria",
+                                                fontWeight = FontWeight.Bold,
+                                                color = SampColors.Blu,
+                                                style = MaterialTheme.typography.titleMedium
+                                            )
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                "Versione ${BuildConfig.VERSION_NAME}",
+                                                style = MaterialTheme.typography.bodyMedium
+                                            )
+                                            Spacer(Modifier.height(12.dp))
+                                            Text(
+                                                "App sviluppata da Di Vito Ruggero",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    },
+                                    confirmButton = {
+                                        TextButton(onClick = { mostraDialogHelp = false }) { Text("Chiudi") }
+                                    }
                                 )
                             }
                         }
