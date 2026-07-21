@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
@@ -62,6 +64,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.scoutingsampdoria.persone.data.model.LogAdmin
 import com.scoutingsampdoria.persone.ui.theme.SampColors
@@ -225,11 +229,16 @@ fun ConfigScreen(
             // ------------- Sezione gestione dati -------------
             SezioneTitolo("Gestione dati", null)
 
+            var mostraDialogCodiceImport by remember { mutableStateOf(false) }
+            var mostraDialogCodiceSvuota by remember { mutableStateOf(false) }
+
             Button(
-                onClick = { filePicker.launch("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") },
+                onClick = { mostraDialogCodiceImport = true },
                 enabled = !viewModel.caricamento,
                 modifier = Modifier.fillMaxWidth()
             ) {
+                Icon(Icons.Filled.Lock, contentDescription = null)
+                Spacer(Modifier.padding(4.dp))
                 Icon(Icons.Filled.UploadFile, contentDescription = null)
                 Spacer(Modifier.padding(4.dp))
                 Text("Importa da file xlsx")
@@ -238,14 +247,42 @@ fun ConfigScreen(
             Spacer(Modifier.height(8.dp))
 
             Button(
-                onClick = { mostraDialogSvuota = true },
+                onClick = { mostraDialogCodiceSvuota = true },
                 enabled = !viewModel.caricamento,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 modifier = Modifier.fillMaxWidth()
             ) {
+                Icon(Icons.Filled.Lock, contentDescription = null)
+                Spacer(Modifier.padding(4.dp))
                 Icon(Icons.Filled.DeleteForever, contentDescription = null)
                 Spacer(Modifier.padding(4.dp))
                 Text("Svuota tutto il database")
+            }
+
+            // Dialog richiesta codice per import
+            if (mostraDialogCodiceImport) {
+                DialogRichiestaCodice(
+                    titolo = "Codice per importare",
+                    descrizione = "Inserisci il codice per procedere con l'import.",
+                    onAnnulla = { mostraDialogCodiceImport = false },
+                    onConfermato = {
+                        mostraDialogCodiceImport = false
+                        filePicker.launch("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    }
+                )
+            }
+
+            // Dialog richiesta codice per svuota (poi dialog di conferma standard)
+            if (mostraDialogCodiceSvuota) {
+                DialogRichiestaCodice(
+                    titolo = "Codice per svuotare",
+                    descrizione = "Inserisci il codice per procedere con lo svuotamento del database.",
+                    onAnnulla = { mostraDialogCodiceSvuota = false },
+                    onConfermato = {
+                        mostraDialogCodiceSvuota = false
+                        mostraDialogSvuota = true
+                    }
+                )
             }
 
             Spacer(Modifier.height(24.dp))
@@ -265,8 +302,9 @@ fun ConfigScreen(
                     onClick = {
                         viewModel.esportaFileInMemoria(FormatoExport.XLSX) { bytes ->
                             bytesInAttesaSalvataggio = bytes
-                            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ITALY).format(Date())
-                            saveXlsxLauncher.launch("giocatori_$timestamp.xlsx")
+                            val data = SimpleDateFormat("yyyyMMdd", Locale.ITALY).format(Date())
+                            val base = viewModel.exportFiltriExtra["CATEGORIA"]?.replace(" ", "_") ?: "players"
+                            saveXlsxLauncher.launch("${base}_$data.xlsx")
                         }
                     },
                     enabled = !viewModel.caricamento,
@@ -281,8 +319,9 @@ fun ConfigScreen(
                     onClick = {
                         viewModel.esportaFileInMemoria(FormatoExport.PDF) { bytes ->
                             bytesInAttesaSalvataggio = bytes
-                            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ITALY).format(Date())
-                            savePdfLauncher.launch("giocatori_$timestamp.pdf")
+                            val data = SimpleDateFormat("yyyyMMdd", Locale.ITALY).format(Date())
+                            val base = viewModel.exportFiltriExtra["CATEGORIA"]?.replace(" ", "_") ?: "players"
+                            savePdfLauncher.launch("${base}_$data.pdf")
                         }
                     },
                     enabled = !viewModel.caricamento,
@@ -325,38 +364,74 @@ fun ConfigScreen(
             Spacer(Modifier.height(24.dp))
 
             // ------------- Sezione log -------------
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            var mostraDialogElencoLog by remember { mutableStateOf(false) }
+
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                onClick = { mostraDialogElencoLog = true }
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Log operazioni", style = MaterialTheme.typography.titleLarge, color = SampColors.Blu, fontWeight = FontWeight.Bold)
-                    Text(
-                        "Storico modifiche amministrative sul database.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                OutlinedButton(onClick = { viewModel.caricaLog() }) {
-                    Icon(Icons.Filled.History, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.padding(2.dp))
-                    Text("Aggiorna")
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.History, contentDescription = null, tint = SampColors.Blu)
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text("LOGS", fontWeight = FontWeight.Bold, color = SampColors.Blu, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "${viewModel.logs.size} operazioni registrate",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Icon(Icons.Filled.ArrowDropDown, contentDescription = null, tint = SampColors.Blu)
                 }
             }
-            Spacer(Modifier.height(12.dp))
 
-            if (viewModel.logs.isEmpty()) {
-                Text(
-                    "Nessuna operazione registrata al momento.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = 8.dp)
+            // Dialog che mostra l'elenco completo dei log
+            if (mostraDialogElencoLog) {
+                AlertDialog(
+                    onDismissRequest = { mostraDialogElencoLog = false },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.History, contentDescription = null, tint = SampColors.Blu)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Storico operazioni", fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    text = {
+                        Column(
+                            modifier = Modifier.verticalScroll(rememberScrollState())
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                OutlinedButton(onClick = { viewModel.caricaLog() }) {
+                                    Text("Aggiorna")
+                                }
+                            }
+                            if (viewModel.logs.isEmpty()) {
+                                Text(
+                                    "Nessuna operazione registrata al momento.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                viewModel.logs.forEach { log ->
+                                    LogItem(log = log, onClick = { mostraDialogLog = log })
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { mostraDialogElencoLog = false }) { Text("Chiudi") }
+                    }
                 )
-            } else {
-                viewModel.logs.forEach { log ->
-                    LogItem(log = log, onClick = { mostraDialogLog = log })
-                }
             }
 
             Spacer(Modifier.height(24.dp))
@@ -620,6 +695,71 @@ private fun descriviTipoLog(tipo: String): String = when (tipo) {
     "export_xlsx" -> "Export xlsx"
     "export_pdf" -> "Export pdf"
     else -> tipo
+}
+
+private const val CODICE_PROTEZIONE = "391622"
+
+@Composable
+private fun DialogRichiestaCodice(
+    titolo: String,
+    descrizione: String,
+    onAnnulla: () -> Unit,
+    onConfermato: () -> Unit
+) {
+    var codice by remember { mutableStateOf("") }
+    var errore by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onAnnulla,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Lock, contentDescription = null, tint = SampColors.Blu)
+                Spacer(Modifier.width(8.dp))
+                Text(titolo, fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column {
+                Text(descrizione, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = codice,
+                    onValueChange = {
+                        codice = it
+                        errore = false
+                    },
+                    label = { Text("Codice") },
+                    singleLine = true,
+                    isError = errore,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (errore) {
+                    Text(
+                        "Codice errato",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                if (codice == CODICE_PROTEZIONE) {
+                    onConfermato()
+                } else {
+                    errore = true
+                }
+            }) {
+                Text("Conferma", color = SampColors.Blu)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onAnnulla) { Text("Annulla") }
+        }
+    )
 }
 
 private fun scriviBytesSuUri(context: android.content.Context, uri: Uri, bytes: ByteArray) {
