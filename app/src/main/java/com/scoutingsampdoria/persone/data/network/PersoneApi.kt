@@ -23,6 +23,7 @@ import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.QueryMap
 
 interface PersoneApi {
 
@@ -109,4 +110,26 @@ interface PersoneApi {
         @Header("Authorization") token: String,
         @Query("limite") limite: Int = 50
     ): Response<List<LogAdmin>>
+
+    @GET("api/admin/export-xlsx")
+    suspend fun exportXlsx(
+        @Header("Authorization") token: String,
+        @Query("q") query: String? = null,
+        @Query("regione") regione: String? = null,
+        @Query("societa") societa: String? = null,
+        @Query("ruolo") ruolo: String? = null,
+        @Query("quick_report") quickReport: String? = null,
+        @QueryMap extra: Map<String, String> = emptyMap()
+    ): Response<okhttp3.ResponseBody>
+
+    @GET("api/admin/export-pdf")
+    suspend fun exportPdf(
+        @Header("Authorization") token: String,
+        @Query("q") query: String? = null,
+        @Query("regione") regione: String? = null,
+        @Query("societa") societa: String? = null,
+        @Query("ruolo") ruolo: String? = null,
+        @Query("quick_report") quickReport: String? = null,
+        @QueryMap extra: Map<String, String> = emptyMap()
+    ): Response<okhttp3.ResponseBody>
 }
