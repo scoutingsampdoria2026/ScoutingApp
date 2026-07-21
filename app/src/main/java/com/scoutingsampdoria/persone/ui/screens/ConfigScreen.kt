@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Description
@@ -65,6 +67,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -300,15 +303,19 @@ fun ConfigScreen(
 
             Spacer(Modifier.height(8.dp))
 
-            // Stato per la modale di anteprima
-            var anteprimaVisibile by remember { mutableStateOf(false) }
-            var formatoScelto by remember { mutableStateOf<FormatoExport?>(null) }
+            // Stato per l'anteprima PDF (bytes scaricati in attesa di conferma)
+            var pdfBytesPerAnteprima by remember { mutableStateOf<ByteArray?>(null) }
 
             Row(modifier = Modifier.fillMaxWidth()) {
+                // XLSX: nessuna anteprima, salva direttamente
                 Button(
                     onClick = {
-                        formatoScelto = FormatoExport.XLSX
-                        viewModel.caricaAnteprimaExport { anteprimaVisibile = true }
+                        viewModel.esportaFileInMemoria(FormatoExport.XLSX) { bytes ->
+                            bytesInAttesaSalvataggio = bytes
+                            val data = SimpleDateFormat("yyyyMMdd", Locale.ITALY).format(Date())
+                            val base = viewModel.exportFiltriExtra["CATEGORIA"]?.replace(" ", "_") ?: "players"
+                            saveXlsxLauncher.launch("${base}_$data.xlsx")
+                        }
                     },
                     enabled = !viewModel.caricamento,
                     modifier = Modifier.weight(1f)
@@ -318,10 +325,12 @@ fun ConfigScreen(
                     Text("XLSX")
                 }
                 Spacer(Modifier.width(8.dp))
+                // PDF: scarica bytes, mostra anteprima, poi salva se confermato
                 Button(
                     onClick = {
-                        formatoScelto = FormatoExport.PDF
-                        viewModel.caricaAnteprimaExport { anteprimaVisibile = true }
+                        viewModel.esportaFileInMemoria(FormatoExport.PDF) { bytes ->
+                            pdfBytesPerAnteprima = bytes
+                        }
                     },
                     enabled = !viewModel.caricamento,
                     colors = ButtonDefaults.buttonColors(containerColor = SampColors.Rosso),
@@ -333,30 +342,17 @@ fun ConfigScreen(
                 }
             }
 
-            // Dialog di anteprima dei dati
-            val anteprima = viewModel.anteprimaExport
-            if (anteprimaVisibile && anteprima != null && formatoScelto != null) {
-                DialogAnteprimaExport(
-                    anteprima = anteprima,
-                    formato = formatoScelto!!,
-                    onAnnulla = {
-                        anteprimaVisibile = false
-                        viewModel.pulisciAnteprima()
-                    },
-                    onConferma = {
-                        anteprimaVisibile = false
-                        val formato = formatoScelto!!
-                        viewModel.esportaFileInMemoria(formato) { bytes ->
-                            bytesInAttesaSalvataggio = bytes
-                            val data = SimpleDateFormat("yyyyMMdd", Locale.ITALY).format(Date())
-                            val base = viewModel.exportFiltriExtra["CATEGORIA"]?.replace(" ", "_") ?: "players"
-                            if (formato == FormatoExport.XLSX) {
-                                saveXlsxLauncher.launch("${base}_$data.xlsx")
-                            } else {
-                                savePdfLauncher.launch("${base}_$data.pdf")
-                            }
-                        }
-                        viewModel.pulisciAnteprima()
+            // Dialog di anteprima PDF con rendering vero delle pagine
+            pdfBytesPerAnteprima?.let { bytes ->
+                DialogAnteprimaPdf(
+                    bytes = bytes,
+                    onAnnulla = { pdfBytesPerAnteprima = null },
+                    onSalva = {
+                        bytesInAttesaSalvataggio = bytes
+                        pdfBytesPerAnteprima = null
+                        val data = SimpleDateFormat("yyyyMMdd", Locale.ITALY).format(Date())
+                        val base = viewModel.exportFiltriExtra["CATEGORIA"]?.replace(" ", "_") ?: "players"
+                        savePdfLauncher.launch("${base}_$data.pdf")
                     }
                 )
             }
@@ -724,131 +720,152 @@ private fun descriviTipoLog(tipo: String): String = when (tipo) {
     else -> tipo
 }
 
-private const val CODICE_PROTEZIONE = "391622"
-
 @Composable
-private fun DialogAnteprimaExport(
-    anteprima: com.scoutingsampdoria.persone.data.model.AnteprimaExport,
-    formato: FormatoExport,
+private fun DialogAnteprimaPdf(
+    bytes: ByteArray,
     onAnnulla: () -> Unit,
-    onConferma: () -> Unit
+    onSalva: () -> Unit
 ) {
-    val nomeFormato = if (formato == FormatoExport.XLSX) "Excel (XLSX)" else "PDF"
-    val iconaFormato = if (formato == FormatoExport.XLSX) Icons.Filled.GridOn else Icons.Filled.Description
-    val coloreFormato = if (formato == FormatoExport.XLSX) SampColors.Blu else SampColors.Rosso
+    val context = LocalContext.current
 
-    AlertDialog(
-        onDismissRequest = onAnnulla,
-        title = {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(iconaFormato, contentDescription = null, tint = coloreFormato)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Anteprima $nomeFormato", fontWeight = FontWeight.Bold)
+    // Salvo temporaneamente i bytes in un file di cache per poter usare PdfRenderer
+    // (PdfRenderer richiede un ParcelFileDescriptor, e serve un file su disco).
+    val pdfFile = remember(bytes) {
+        val cartella = java.io.File(context.cacheDir, "anteprima")
+        cartella.mkdirs()
+        val f = java.io.File(cartella, "anteprima_temp.pdf")
+        f.writeBytes(bytes)
+        f
+    }
+
+    // Carico le pagine come Bitmap
+    val pagineBitmap = remember(pdfFile) {
+        try {
+            val listaPagine = mutableListOf<android.graphics.Bitmap>()
+            android.os.ParcelFileDescriptor.open(pdfFile, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { pfd ->
+                android.graphics.pdf.PdfRenderer(pfd).use { renderer ->
+                    for (i in 0 until renderer.pageCount) {
+                        renderer.openPage(i).use { pagina ->
+                            // Scalo per avere qualità decente sul tablet (400 dpi virtuali)
+                            val scala = 2.0f
+                            val larghezza = (pagina.width * scala).toInt()
+                            val altezza = (pagina.height * scala).toInt()
+                            val bmp = android.graphics.Bitmap.createBitmap(
+                                larghezza, altezza, android.graphics.Bitmap.Config.ARGB_8888
+                            )
+                            // Sfondo bianco
+                            android.graphics.Canvas(bmp).drawColor(android.graphics.Color.WHITE)
+                            pagina.render(bmp, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            listaPagine.add(bmp)
+                        }
+                    }
                 }
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Scouting Sampdoria — ${anteprima.titolo}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = SampColors.Blu
-                )
-                Text(
-                    "${anteprima.totale} giocatori" +
-                        if (anteprima.filtriDescritti.isNotEmpty())
-                            " · Filtri: ${anteprima.filtriDescritti.joinToString(", ")}"
-                        else "",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
-        },
-        text = {
-            if (anteprima.totale == 0) {
-                Text(
-                    "Nessun giocatore corrisponde ai filtri selezionati.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                // Mostro le prime 30 righe per non appesantire (con "Mostrando N di TOT" se limitato)
-                val righeMostrate = anteprima.righe.take(30)
-                val colonneStandard = listOf(
-                    "cognome" to "Cognome",
-                    "nome" to "Nome",
-                    "societa" to "Società",
-                    "data_nascita" to "Nascita",
-                    "regione" to "Regione",
-                    "ruolo" to "Ruolo",
-                    "quick_report" to "Q.Report"
-                )
-                val colonneExtra = anteprima.campiCustom.map { it to it }
-                val colonne = colonneStandard + colonneExtra
+            listaPagine
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
 
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                    ) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onAnnulla,
+        properties = androidx.compose.ui.window.DialogProperties(
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Description, contentDescription = null, tint = SampColors.Rosso)
+                        Spacer(Modifier.width(8.dp))
                         Column {
-                            // Intestazione tabella
-                            Row(
+                            Text("Anteprima PDF", fontWeight = FontWeight.Bold)
+                            Text(
+                                "${pagineBitmap.size} pagine",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    IconButton(onClick = onAnnulla) {
+                        Icon(Icons.Filled.Close, contentDescription = "Chiudi")
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Contenitore scorrevole con le pagine
+                Column(
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .fillMaxWidth()
+                        .heightIn(max = 500.dp)
+                        .verticalScroll(rememberScrollState())
+                        .background(Color(0xFFECECEC))
+                        .padding(8.dp)
+                ) {
+                    if (pagineBitmap.isEmpty()) {
+                        Text(
+                            "Impossibile generare l'anteprima. Puoi comunque salvare il file.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(24.dp)
+                        )
+                    } else {
+                        pagineBitmap.forEachIndexed { indice, bitmap ->
+                            Card(
+                                shape = RoundedCornerShape(4.dp),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                                 modifier = Modifier
-                                    .background(SampColors.Blu)
-                                    .padding(vertical = 6.dp, horizontal = 4.dp)
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
                             ) {
-                                colonne.forEach { (_, etichetta) ->
-                                    Text(
-                                        etichetta,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.width(90.dp).padding(horizontal = 2.dp)
-                                    )
-                                }
-                            }
-                            // Righe
-                            righeMostrate.forEachIndexed { i, riga ->
-                                Row(
-                                    modifier = Modifier
-                                        .background(if (i % 2 == 0) Color.White else SampColors.Blu.copy(alpha = 0.06f))
-                                        .padding(vertical = 4.dp, horizontal = 4.dp)
-                                ) {
-                                    colonne.forEach { (chiave, _) ->
-                                        Text(
-                                            riga[chiave] ?: "",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            modifier = Modifier.width(90.dp).padding(horizontal = 2.dp),
-                                            maxLines = 1
-                                        )
-                                    }
-                                }
+                                androidx.compose.foundation.Image(
+                                    bitmap = bitmap.asImageBitmap(),
+                                    contentDescription = "Pagina ${indice + 1}",
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.FillWidth
+                                )
                             }
                         }
                     }
-                    if (anteprima.righe.size > 30) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "…anteprima limitata alle prime 30 righe. Nel file finale saranno incluse tutte le ${anteprima.totale} righe.",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onAnnulla) {
+                        Text("Annulla")
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = onSalva,
+                        colors = ButtonDefaults.buttonColors(containerColor = SampColors.Rosso)
+                    ) {
+                        Icon(Icons.Filled.Description, contentDescription = null)
+                        Spacer(Modifier.padding(4.dp))
+                        Text("Salva PDF")
                     }
                 }
             }
-        },
-        confirmButton = {
-            if (anteprima.totale > 0) {
-                TextButton(onClick = onConferma) {
-                    Text("Salva $nomeFormato", color = coloreFormato, fontWeight = FontWeight.Bold)
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onAnnulla) { Text("Annulla") }
         }
-    )
+    }
 }
+
+private const val CODICE_PROTEZIONE = "391622"
 
 @Composable
 private fun DialogRichiestaCodice(
