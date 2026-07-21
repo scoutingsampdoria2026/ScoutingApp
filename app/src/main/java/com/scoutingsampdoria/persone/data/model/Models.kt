@@ -76,3 +76,19 @@ data class ProblemaImport(
 data class ConfermaSvuota(
     val conferma: String = "SVUOTA"
 )
+
+data class AllineaResponse(
+    val messaggio: String?,
+    val stagione: String?,
+    val modificati: Int?,
+    val invariati: Int?,
+    @SerializedName("senza_data") val senzaData: Int?
+)
+
+data class LogAdmin(
+    val id: Int,
+    val tipo: String,
+    val dettaglio: String?,
+    val utente: String?,
+    @SerializedName("creato_il") val creatoIl: String?
+)
