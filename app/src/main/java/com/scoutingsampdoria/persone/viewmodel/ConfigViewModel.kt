@@ -1,6 +1,5 @@
 package com.scoutingsampdoria.persone.viewmodel
 
-import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -11,13 +10,7 @@ import com.scoutingsampdoria.persone.data.model.CampoCustom
 import com.scoutingsampdoria.persone.data.model.LogAdmin
 import com.scoutingsampdoria.persone.repository.ApiResult
 import com.scoutingsampdoria.persone.repository.PersoneRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class ConfigViewModel(
     private val repository: PersoneRepository,
@@ -114,10 +107,11 @@ class ConfigViewModel(
     }
 
     /**
-     * Scarica un file esportato (xlsx o pdf) applicando i filtri correnti, lo
-     * salva nella cache dell'app e restituisce il File tramite callback.
+     * Scarica i bytes del file esportato applicando i filtri correnti e li
+     * restituisce tramite callback. Il salvataggio effettivo avviene lato UI
+     * tramite Storage Access Framework.
      */
-    fun esportaFile(context: Context, formato: FormatoExport, onCompletato: (File) -> Unit) {
+    fun esportaFileInMemoria(formato: FormatoExport, onCompletato: (ByteArray) -> Unit) {
         caricamento = true
         errore = null
         messaggio = null
@@ -146,19 +140,11 @@ class ConfigViewModel(
                     val bytes = risultato.dati
                     if (bytes.isEmpty()) {
                         errore = "Il file scaricato è vuoto"
-                        caricamento = false
-                        return@launch
+                    } else {
+                        messaggio = "File pronto (${bytes.size / 1024} KB) — scegli dove salvarlo"
+                        caricaLog()
+                        onCompletato(bytes)
                     }
-                    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ITALY).format(Date())
-                    val estensione = if (formato == FormatoExport.XLSX) "xlsx" else "pdf"
-                    val cartellaExport = File(context.cacheDir, "export").apply { mkdirs() }
-                    val file = File(cartellaExport, "giocatori_$timestamp.$estensione")
-                    withContext(Dispatchers.IO) {
-                        file.writeBytes(bytes)
-                    }
-                    messaggio = "Export completato: ${file.name}"
-                    caricaLog()
-                    onCompletato(file)
                 }
                 is ApiResult.Errore -> errore = risultato.messaggio
             }
