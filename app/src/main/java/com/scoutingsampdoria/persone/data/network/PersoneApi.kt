@@ -111,6 +111,17 @@ interface PersoneApi {
         @Query("limite") limite: Int = 50
     ): Response<List<LogAdmin>>
 
+    @GET("api/admin/export-anteprima")
+    suspend fun exportAnteprima(
+        @Header("Authorization") token: String,
+        @Query("q") query: String? = null,
+        @Query("regione") regione: String? = null,
+        @Query("societa") societa: String? = null,
+        @Query("ruolo") ruolo: String? = null,
+        @Query("quick_report") quickReport: String? = null,
+        @QueryMap extra: Map<String, String> = emptyMap()
+    ): Response<com.scoutingsampdoria.persone.data.model.AnteprimaExport>
+
     @GET("api/admin/export-xlsx")
     suspend fun exportXlsx(
         @Header("Authorization") token: String,
