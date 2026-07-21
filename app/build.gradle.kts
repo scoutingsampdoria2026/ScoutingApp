@@ -12,7 +12,8 @@ android {
         minSdk = 24
         targetSdk = 34
         versionCode = 1
-        versionName = "1.0"
+        // versionName di default; sovrascritto dal workflow con -PversionNameOverride=N
+        versionName = (project.findProperty("versionNameOverride") as String?)?.let { "1.0.$it" } ?: "1.0-dev"
 
         // Cambia questo con il tuo dominio PythonAnywhere reale.
         buildConfigField("String", "BASE_URL", "\"https://scoutingsampdoria.pythonanywhere.com/\"")
