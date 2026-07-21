@@ -1,8 +1,10 @@
 package com.scoutingsampdoria.persone.repository
 
+import com.scoutingsampdoria.persone.data.model.AllineaResponse
 import com.scoutingsampdoria.persone.data.model.CampoCustom
 import com.scoutingsampdoria.persone.data.model.ImportResponse
 import com.scoutingsampdoria.persone.data.model.ListaPersoneResponse
+import com.scoutingsampdoria.persone.data.model.LogAdmin
 import com.scoutingsampdoria.persone.data.model.LoginRequest
 import com.scoutingsampdoria.persone.data.model.LoginResponse
 import com.scoutingsampdoria.persone.data.model.MessaggioResponse
@@ -127,6 +129,22 @@ class PersoneRepository {
             )
             val part = MultipartBody.Part.createFormData("file", nomeFile, requestBody)
             gestisciRisposta(api.importaXlsx(ApiClient.bearer(token), part))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun allineaCategorie(token: String): ApiResult<AllineaResponse> {
+        return try {
+            gestisciRisposta(api.allineaCategorie(ApiClient.bearer(token)))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun listaLog(token: String): ApiResult<List<LogAdmin>> {
+        return try {
+            gestisciRisposta(api.listaLog(ApiClient.bearer(token)))
         } catch (e: Exception) {
             ApiResult.Errore("Impossibile contattare il server: ${e.message}")
         }
