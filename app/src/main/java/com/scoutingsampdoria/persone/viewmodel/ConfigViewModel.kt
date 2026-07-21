@@ -1,5 +1,6 @@
 package com.scoutingsampdoria.persone.viewmodel
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -10,7 +11,13 @@ import com.scoutingsampdoria.persone.data.model.CampoCustom
 import com.scoutingsampdoria.persone.data.model.LogAdmin
 import com.scoutingsampdoria.persone.repository.ApiResult
 import com.scoutingsampdoria.persone.repository.PersoneRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class ConfigViewModel(
     private val repository: PersoneRepository,
@@ -27,6 +34,46 @@ class ConfigViewModel(
         private set
     var logs by mutableStateOf<List<LogAdmin>>(emptyList())
         private set
+
+    // Filtri per export (indipendenti da quelli della lista)
+    var exportFiltroRegione by mutableStateOf<String?>(null)
+        private set
+    var exportFiltroRuolo by mutableStateOf<String?>(null)
+        private set
+    var exportFiltroSocieta by mutableStateOf<String?>(null)
+        private set
+    var exportFiltroQuickReport by mutableStateOf<String?>(null)
+        private set
+    var exportFiltriExtra by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+
+    fun impostaExportFiltro(
+        regione: String? = exportFiltroRegione,
+        ruolo: String? = exportFiltroRuolo,
+        societa: String? = exportFiltroSocieta,
+        quickReport: String? = exportFiltroQuickReport
+    ) {
+        exportFiltroRegione = regione
+        exportFiltroRuolo = ruolo
+        exportFiltroSocieta = societa
+        exportFiltroQuickReport = quickReport
+    }
+
+    fun impostaExportFiltroExtra(nomeCampo: String, valore: String?) {
+        exportFiltriExtra = if (valore == null) {
+            exportFiltriExtra - nomeCampo
+        } else {
+            exportFiltriExtra + (nomeCampo to valore)
+        }
+    }
+
+    fun azzeraExportFiltri() {
+        exportFiltroRegione = null
+        exportFiltroRuolo = null
+        exportFiltroSocieta = null
+        exportFiltroQuickReport = null
+        exportFiltriExtra = emptyMap()
+    }
 
     fun caricaCampi() {
         viewModelScope.launch {
@@ -61,6 +108,59 @@ class ConfigViewModel(
                     onCompletato()
                 }
                 is ApiResult.Errore -> errore = r.messaggio
+            }
+            caricamento = false
+        }
+    }
+
+    /**
+     * Scarica un file esportato (xlsx o pdf) applicando i filtri correnti, lo
+     * salva nella cache dell'app e restituisce il File tramite callback.
+     */
+    fun esportaFile(context: Context, formato: FormatoExport, onCompletato: (File) -> Unit) {
+        caricamento = true
+        errore = null
+        messaggio = null
+        viewModelScope.launch {
+            val token = tokenManager.getToken() ?: return@launch
+            val risultato = when (formato) {
+                FormatoExport.XLSX -> repository.exportXlsx(
+                    token,
+                    regione = exportFiltroRegione,
+                    ruolo = exportFiltroRuolo,
+                    societa = exportFiltroSocieta,
+                    quickReport = exportFiltroQuickReport,
+                    filtriExtra = exportFiltriExtra
+                )
+                FormatoExport.PDF -> repository.exportPdf(
+                    token,
+                    regione = exportFiltroRegione,
+                    ruolo = exportFiltroRuolo,
+                    societa = exportFiltroSocieta,
+                    quickReport = exportFiltroQuickReport,
+                    filtriExtra = exportFiltriExtra
+                )
+            }
+            when (risultato) {
+                is ApiResult.Successo -> {
+                    val bytes = risultato.dati
+                    if (bytes.isEmpty()) {
+                        errore = "Il file scaricato è vuoto"
+                        caricamento = false
+                        return@launch
+                    }
+                    val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ITALY).format(Date())
+                    val estensione = if (formato == FormatoExport.XLSX) "xlsx" else "pdf"
+                    val cartellaExport = File(context.cacheDir, "export").apply { mkdirs() }
+                    val file = File(cartellaExport, "giocatori_$timestamp.$estensione")
+                    withContext(Dispatchers.IO) {
+                        file.writeBytes(bytes)
+                    }
+                    messaggio = "Export completato: ${file.name}"
+                    caricaLog()
+                    onCompletato(file)
+                }
+                is ApiResult.Errore -> errore = risultato.messaggio
             }
             caricamento = false
         }
@@ -150,3 +250,5 @@ class ConfigViewModel(
         messaggio = null
     }
 }
+
+enum class FormatoExport { XLSX, PDF }
