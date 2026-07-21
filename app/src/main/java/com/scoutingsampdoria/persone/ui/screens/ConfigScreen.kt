@@ -11,23 +11,29 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.SyncAlt
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -43,7 +49,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.scoutingsampdoria.persone.data.model.LogAdmin
+import com.scoutingsampdoria.persone.ui.theme.SampColors
 import com.scoutingsampdoria.persone.viewmodel.ConfigViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,13 +65,15 @@ fun ConfigScreen(
     val context = LocalContext.current
     var nuovoCampo by remember { mutableStateOf("") }
     var mostraDialogSvuota by remember { mutableStateOf(false) }
+    var mostraDialogAllinea by remember { mutableStateOf(false) }
+    var mostraDialogLog by remember { mutableStateOf<LogAdmin?>(null) }
     var campoDaEliminare by remember { mutableStateOf<Pair<Int, String>?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.caricaCampi()
+        viewModel.caricaLog()
     }
 
-    // File picker per l'xlsx
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -78,7 +89,7 @@ fun ConfigScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Configurazione") },
+                title = { Text("Configurazione", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onIndietro) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = MaterialTheme.colorScheme.onPrimary)
@@ -89,7 +100,8 @@ fun ConfigScreen(
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
-        }
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -100,7 +112,7 @@ fun ConfigScreen(
         ) {
 
             // ------------- Sezione campi personalizzati -------------
-            Text("Campi personalizzati", style = MaterialTheme.typography.titleLarge)
+            Text("Campi personalizzati", style = MaterialTheme.typography.titleLarge, color = SampColors.Blu, fontWeight = FontWeight.Bold)
             Text(
                 "I campi aggiunti compaiono su tutte le schede. Se non valorizzati, vengono mostrati con \"-\".",
                 style = MaterialTheme.typography.bodySmall,
@@ -112,7 +124,7 @@ fun ConfigScreen(
                 OutlinedTextField(
                     value = nuovoCampo,
                     onValueChange = { nuovoCampo = it },
-                    label = { Text("Nome nuovo campo (es. Piede, Altezza)") },
+                    label = { Text("Nome nuovo campo") },
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -130,9 +142,11 @@ fun ConfigScreen(
             Spacer(Modifier.height(8.dp))
 
             viewModel.campi.forEach { campo ->
-                Card(modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
                 ) {
                     Row(
                         modifier = Modifier
@@ -151,8 +165,29 @@ fun ConfigScreen(
 
             Spacer(Modifier.height(24.dp))
 
-            // ------------- Sezione dati -------------
-            Text("Gestione dati", style = MaterialTheme.typography.titleLarge)
+            // ------------- Sezione strumenti categoria -------------
+            Text("Categoria giocatori", style = MaterialTheme.typography.titleLarge, color = SampColors.Blu, fontWeight = FontWeight.Bold)
+            Text(
+                "Ricalcola il campo CATEGORIA per tutti i giocatori in base alla loro data di nascita e alla stagione calcistica in corso (dal 1° luglio al 30 giugno).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+
+            Button(
+                onClick = { mostraDialogAllinea = true },
+                enabled = !viewModel.caricamento,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Filled.SyncAlt, contentDescription = null)
+                Spacer(Modifier.padding(4.dp))
+                Text("Allinea categoria con nascita")
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // ------------- Sezione gestione dati -------------
+            Text("Gestione dati", style = MaterialTheme.typography.titleLarge, color = SampColors.Blu, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
 
             Button(
@@ -187,15 +222,66 @@ fun ConfigScreen(
             }
 
             viewModel.messaggio?.let {
-                Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp))
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = SampColors.Blu.copy(alpha = 0.08f)),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                ) {
+                    Text(it, color = SampColors.Blu, modifier = Modifier.padding(12.dp))
+                }
             }
             viewModel.errore?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.08f)),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                ) {
+                    Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp))
+                }
             }
+
+            Spacer(Modifier.height(24.dp))
+
+            // ------------- Sezione log -------------
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Log operazioni", style = MaterialTheme.typography.titleLarge, color = SampColors.Blu, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Storico modifiche amministrative sul database.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                OutlinedButton(onClick = { viewModel.caricaLog() }) {
+                    Icon(Icons.Filled.History, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.padding(2.dp))
+                    Text("Aggiorna")
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+
+            if (viewModel.logs.isEmpty()) {
+                Text(
+                    "Nessuna operazione registrata al momento.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                viewModel.logs.forEach { log ->
+                    LogItem(log = log, onClick = { mostraDialogLog = log })
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
         }
     }
 
-    // Dialog di conferma svuotamento (doppio passaggio: bottone + conferma)
+    // ------- Dialog conferma svuotamento -------
     if (mostraDialogSvuota) {
         AlertDialog(
             onDismissRequest = { mostraDialogSvuota = false },
@@ -210,14 +296,32 @@ fun ConfigScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { mostraDialogSvuota = false }) {
-                    Text("Annulla")
-                }
+                TextButton(onClick = { mostraDialogSvuota = false }) { Text("Annulla") }
             }
         )
     }
 
-    // Dialog di conferma eliminazione campo
+    // ------- Dialog conferma allineamento -------
+    if (mostraDialogAllinea) {
+        AlertDialog(
+            onDismissRequest = { mostraDialogAllinea = false },
+            title = { Text("Allineare le categorie?") },
+            text = { Text("Il campo CATEGORIA verrà ricalcolato per tutti i giocatori con data di nascita valida, in base alla stagione calcistica corrente. Le modifiche verranno registrate nel log.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    mostraDialogAllinea = false
+                    viewModel.allineaCategorie { onDatiCambiati() }
+                }) {
+                    Text("Sì, allinea", color = SampColors.Blu)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostraDialogAllinea = false }) { Text("Annulla") }
+            }
+        )
+    }
+
+    // ------- Dialog eliminazione campo -------
     campoDaEliminare?.let { (id, nome) ->
         AlertDialog(
             onDismissRequest = { campoDaEliminare = null },
@@ -232,10 +336,78 @@ fun ConfigScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { campoDaEliminare = null }) {
-                    Text("Annulla")
-                }
+                TextButton(onClick = { campoDaEliminare = null }) { Text("Annulla") }
             }
         )
     }
+
+    // ------- Dialog dettaglio log -------
+    mostraDialogLog?.let { log ->
+        AlertDialog(
+            onDismissRequest = { mostraDialogLog = null },
+            title = { Text(descriviTipoLog(log.tipo)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    log.creatoIl?.let {
+                        Text(
+                            "Data: $it",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    log.utente?.let {
+                        Text(
+                            "Utente: $it",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(log.dettaglio ?: "(nessun dettaglio)", style = MaterialTheme.typography.bodyMedium)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { mostraDialogLog = null }) { Text("Chiudi") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun LogItem(log: LogAdmin, onClick: () -> Unit) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        onClick = onClick
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(descriviTipoLog(log.tipo), fontWeight = FontWeight.SemiBold, color = SampColors.Blu)
+                log.creatoIl?.let {
+                    Text(it.take(16).replace("T", " "), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            log.dettaglio?.let { d ->
+                val riassunto = d.lines().firstOrNull().orEmpty()
+                Text(
+                    riassunto,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2
+                )
+            }
+        }
+    }
+}
+
+private fun descriviTipoLog(tipo: String): String = when (tipo) {
+    "allinea_categoria" -> "Allineamento categorie"
+    "import" -> "Import xlsx"
+    "svuota" -> "Svuotamento DB"
+    else -> tipo
 }
