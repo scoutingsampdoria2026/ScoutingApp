@@ -49,6 +49,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.scoutingsampdoria.persone.BuildConfig
 import com.scoutingsampdoria.persone.R
 import com.scoutingsampdoria.persone.data.model.Persona
 import com.scoutingsampdoria.persone.ui.theme.SampColors
@@ -104,7 +105,7 @@ fun PersonListScreen(
                                 textAlign = TextAlign.Center
                             )
                             Text(
-                                text = "${viewModel.totale} giocatori",
+                                text = "${viewModel.totale} giocatori · v${BuildConfig.VERSION_NAME}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
                                 textAlign = TextAlign.Center
