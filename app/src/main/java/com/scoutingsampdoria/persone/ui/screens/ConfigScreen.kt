@@ -63,13 +63,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import com.scoutingsampdoria.persone.data.model.LogAdmin
 import com.scoutingsampdoria.persone.ui.theme.SampColors
 import com.scoutingsampdoria.persone.viewmodel.ConfigViewModel
 import com.scoutingsampdoria.persone.viewmodel.FormatoExport
 import com.scoutingsampdoria.persone.viewmodel.PersoneViewModel
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,10 +88,13 @@ fun ConfigScreen(
     var mostraDialogLog by remember { mutableStateOf<LogAdmin?>(null) }
     var campoDaEliminare by remember { mutableStateOf<Pair<Int, String>?>(null) }
 
+    // Bytes del file appena scaricato dal server, in attesa che l'utente scelga
+    // la destinazione tramite il picker di sistema.
+    var bytesInAttesaSalvataggio by remember { mutableStateOf<ByteArray?>(null) }
+
     LaunchedEffect(Unit) {
         viewModel.caricaCampi()
         viewModel.caricaLog()
-        // Assicuriamoci che i valori disponibili per i filtri export siano popolati
         personeViewModel.caricaLista()
         personeViewModel.caricaCampiCustom()
     }
@@ -104,6 +109,30 @@ fun ConfigScreen(
                 viewModel.importaXlsx(nome, bytes) { onDatiCambiati() }
             }
         }
+    }
+
+    // Picker "Salva con nome" per XLSX: si apre il selettore di sistema che chiede
+    // la cartella e il nome del file, poi scrive i bytes nella destinazione scelta.
+    val saveXlsxLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    ) { uri: Uri? ->
+        val bytes = bytesInAttesaSalvataggio
+        if (uri != null && bytes != null) {
+            scriviBytesSuUri(context, uri, bytes)
+        }
+        bytesInAttesaSalvataggio = null
+    }
+
+    val savePdfLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/pdf")
+    ) { uri: Uri? ->
+        val bytes = bytesInAttesaSalvataggio
+        if (uri != null && bytes != null) {
+            scriviBytesSuUri(context, uri, bytes)
+        }
+        bytesInAttesaSalvataggio = null
     }
 
     Scaffold(
@@ -234,8 +263,10 @@ fun ConfigScreen(
             Row(modifier = Modifier.fillMaxWidth()) {
                 Button(
                     onClick = {
-                        viewModel.esportaFile(context, FormatoExport.XLSX) { file ->
-                            apriFile(context, file, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                        viewModel.esportaFileInMemoria(FormatoExport.XLSX) { bytes ->
+                            bytesInAttesaSalvataggio = bytes
+                            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ITALY).format(Date())
+                            saveXlsxLauncher.launch("giocatori_$timestamp.xlsx")
                         }
                     },
                     enabled = !viewModel.caricamento,
@@ -248,8 +279,10 @@ fun ConfigScreen(
                 Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = {
-                        viewModel.esportaFile(context, FormatoExport.PDF) { file ->
-                            apriFile(context, file, "application/pdf")
+                        viewModel.esportaFileInMemoria(FormatoExport.PDF) { bytes ->
+                            bytesInAttesaSalvataggio = bytes
+                            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.ITALY).format(Date())
+                            savePdfLauncher.launch("giocatori_$timestamp.pdf")
                         }
                     },
                     enabled = !viewModel.caricamento,
@@ -589,23 +622,21 @@ private fun descriviTipoLog(tipo: String): String = when (tipo) {
     else -> tipo
 }
 
-private fun apriFile(context: android.content.Context, file: File, mimeType: String) {
+private fun scriviBytesSuUri(context: android.content.Context, uri: Uri, bytes: ByteArray) {
     try {
-        val uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            file
-        )
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, mimeType)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.contentResolver.openOutputStream(uri)?.use { output ->
+            output.write(bytes)
+            output.flush()
         }
-        context.startActivity(Intent.createChooser(intent, "Apri con..."))
+        android.widget.Toast.makeText(
+            context,
+            "File salvato correttamente",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
     } catch (e: Exception) {
         android.widget.Toast.makeText(
             context,
-            "Impossibile aprire il file: ${e.message}",
+            "Errore nel salvataggio: ${e.message}",
             android.widget.Toast.LENGTH_LONG
         ).show()
     }
