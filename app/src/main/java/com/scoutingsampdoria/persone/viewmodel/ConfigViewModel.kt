@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.scoutingsampdoria.persone.data.TokenManager
 import com.scoutingsampdoria.persone.data.model.CampoCustom
+import com.scoutingsampdoria.persone.data.model.LogAdmin
 import com.scoutingsampdoria.persone.repository.ApiResult
 import com.scoutingsampdoria.persone.repository.PersoneRepository
 import kotlinx.coroutines.launch
@@ -24,6 +25,8 @@ class ConfigViewModel(
         private set
     var campi by mutableStateOf<List<CampoCustom>>(emptyList())
         private set
+    var logs by mutableStateOf<List<LogAdmin>>(emptyList())
+        private set
 
     fun caricaCampi() {
         viewModelScope.launch {
@@ -32,6 +35,34 @@ class ConfigViewModel(
                 is ApiResult.Successo -> campi = r.dati
                 is ApiResult.Errore -> errore = r.messaggio
             }
+        }
+    }
+
+    fun caricaLog() {
+        viewModelScope.launch {
+            val token = tokenManager.getToken() ?: return@launch
+            when (val r = repository.listaLog(token)) {
+                is ApiResult.Successo -> logs = r.dati
+                is ApiResult.Errore -> errore = r.messaggio
+            }
+        }
+    }
+
+    fun allineaCategorie(onCompletato: () -> Unit) {
+        caricamento = true
+        errore = null
+        messaggio = null
+        viewModelScope.launch {
+            val token = tokenManager.getToken() ?: return@launch
+            when (val r = repository.allineaCategorie(token)) {
+                is ApiResult.Successo -> {
+                    messaggio = r.dati.messaggio ?: "Allineamento completato"
+                    caricaLog()
+                    onCompletato()
+                }
+                is ApiResult.Errore -> errore = r.messaggio
+            }
+            caricamento = false
         }
     }
 
