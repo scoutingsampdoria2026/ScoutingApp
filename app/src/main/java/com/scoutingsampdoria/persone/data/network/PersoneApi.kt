@@ -1,9 +1,11 @@
 package com.scoutingsampdoria.persone.data.network
 
+import com.scoutingsampdoria.persone.data.model.AllineaResponse
 import com.scoutingsampdoria.persone.data.model.CampoCustom
 import com.scoutingsampdoria.persone.data.model.ConfermaSvuota
 import com.scoutingsampdoria.persone.data.model.ImportResponse
 import com.scoutingsampdoria.persone.data.model.ListaPersoneResponse
+import com.scoutingsampdoria.persone.data.model.LogAdmin
 import com.scoutingsampdoria.persone.data.model.LoginRequest
 import com.scoutingsampdoria.persone.data.model.LoginResponse
 import com.scoutingsampdoria.persone.data.model.MessaggioResponse
@@ -96,4 +98,15 @@ interface PersoneApi {
         @Header("Authorization") token: String,
         @Part file: MultipartBody.Part
     ): Response<ImportResponse>
+
+    @POST("api/admin/allinea-categorie")
+    suspend fun allineaCategorie(
+        @Header("Authorization") token: String
+    ): Response<AllineaResponse>
+
+    @GET("api/admin/log")
+    suspend fun listaLog(
+        @Header("Authorization") token: String,
+        @Query("limite") limite: Int = 50
+    ): Response<List<LogAdmin>>
 }
