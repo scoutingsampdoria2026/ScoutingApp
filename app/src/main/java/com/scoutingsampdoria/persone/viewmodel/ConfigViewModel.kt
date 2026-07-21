@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.scoutingsampdoria.persone.data.TokenManager
+import com.scoutingsampdoria.persone.data.model.AnteprimaExport
 import com.scoutingsampdoria.persone.data.model.CampoCustom
 import com.scoutingsampdoria.persone.data.model.LogAdmin
 import com.scoutingsampdoria.persone.repository.ApiResult
@@ -27,6 +28,37 @@ class ConfigViewModel(
         private set
     var logs by mutableStateOf<List<LogAdmin>>(emptyList())
         private set
+
+    // Stato per l'anteprima export
+    var anteprimaExport by mutableStateOf<AnteprimaExport?>(null)
+        private set
+
+    fun caricaAnteprimaExport(onCompletato: (AnteprimaExport) -> Unit) {
+        caricamento = true
+        errore = null
+        viewModelScope.launch {
+            val token = tokenManager.getToken() ?: return@launch
+            when (val r = repository.exportAnteprima(
+                token,
+                regione = exportFiltroRegione,
+                ruolo = exportFiltroRuolo,
+                societa = exportFiltroSocieta,
+                quickReport = exportFiltroQuickReport,
+                filtriExtra = exportFiltriExtra
+            )) {
+                is ApiResult.Successo -> {
+                    anteprimaExport = r.dati
+                    onCompletato(r.dati)
+                }
+                is ApiResult.Errore -> errore = r.messaggio
+            }
+            caricamento = false
+        }
+    }
+
+    fun pulisciAnteprima() {
+        anteprimaExport = null
+    }
 
     // Filtri per export (indipendenti da quelli della lista)
     var exportFiltroRegione by mutableStateOf<String?>(null)
