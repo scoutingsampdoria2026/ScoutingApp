@@ -1,8 +1,7 @@
-package com.scoutingsampdoria.persone.data.network
+package com.scoutingsampdoria.persone.repository
 
 import com.scoutingsampdoria.persone.data.model.AllineaResponse
 import com.scoutingsampdoria.persone.data.model.CampoCustom
-import com.scoutingsampdoria.persone.data.model.ConfermaSvuota
 import com.scoutingsampdoria.persone.data.model.ImportResponse
 import com.scoutingsampdoria.persone.data.model.ListaPersoneResponse
 import com.scoutingsampdoria.persone.data.model.LogAdmin
@@ -11,125 +10,220 @@ import com.scoutingsampdoria.persone.data.model.LoginResponse
 import com.scoutingsampdoria.persone.data.model.MessaggioResponse
 import com.scoutingsampdoria.persone.data.model.Persona
 import com.scoutingsampdoria.persone.data.model.PersonaRequest
+import com.scoutingsampdoria.persone.data.network.ApiClient
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Response
-import retrofit2.http.Body
-import retrofit2.http.DELETE
-import retrofit2.http.GET
-import retrofit2.http.Header
-import retrofit2.http.Multipart
-import retrofit2.http.PUT
-import retrofit2.http.POST
-import retrofit2.http.Part
-import retrofit2.http.Path
-import retrofit2.http.Query
-import retrofit2.http.QueryMap
 
-interface PersoneApi {
+/** Risultato semplice per non far leggere Retrofit al resto dell'app. */
+sealed class ApiResult<out T> {
+    data class Successo<T>(val dati: T) : ApiResult<T>()
+    data class Errore(val messaggio: String, val codice: Int? = null) : ApiResult<Nothing>()
+}
 
-    @POST("api/login")
-    suspend fun login(@Body body: LoginRequest): Response<LoginResponse>
+class PersoneRepository {
 
-    @GET("api/persone")
+    private val api = ApiClient.api
+
+    suspend fun login(username: String, password: String): ApiResult<LoginResponse> {
+        return try {
+            val risposta = api.login(LoginRequest(username, password))
+            gestisciRisposta(risposta)
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
     suspend fun listaPersone(
-        @Header("Authorization") token: String,
-        @Query("q") query: String? = null,
-        @Query("regione") regione: String? = null,
-        @Query("societa") societa: String? = null,
-        @Query("ruolo") ruolo: String? = null,
-        @Query("page") page: Int = 1,
-        @Query("per_page") perPage: Int = 50
-    ): Response<ListaPersoneResponse>
+        token: String,
+        query: String? = null,
+        regione: String? = null,
+        societa: String? = null,
+        ruolo: String? = null,
+        page: Int = 1
+    ): ApiResult<ListaPersoneResponse> {
+        return try {
+            val risposta = api.listaPersone(
+                token = ApiClient.bearer(token),
+                query = query?.takeIf { it.isNotBlank() },
+                regione = regione?.takeIf { it.isNotBlank() },
+                societa = societa?.takeIf { it.isNotBlank() },
+                ruolo = ruolo?.takeIf { it.isNotBlank() },
+                page = page
+            )
+            gestisciRisposta(risposta)
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    @GET("api/persone/{id}")
-    suspend fun getPersona(
-        @Header("Authorization") token: String,
-        @Path("id") id: Int
-    ): Response<Persona>
+    suspend fun getPersona(token: String, id: Int): ApiResult<Persona> {
+        return try {
+            gestisciRisposta(api.getPersona(ApiClient.bearer(token), id))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    @POST("api/persone")
-    suspend fun creaPersona(
-        @Header("Authorization") token: String,
-        @Body persona: PersonaRequest
-    ): Response<MessaggioResponse>
+    suspend fun creaPersona(token: String, persona: PersonaRequest): ApiResult<MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.creaPersona(ApiClient.bearer(token), persona))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    @PUT("api/persone/{id}")
-    suspend fun modificaPersona(
-        @Header("Authorization") token: String,
-        @Path("id") id: Int,
-        @Body persona: PersonaRequest
-    ): Response<MessaggioResponse>
+    suspend fun modificaPersona(token: String, id: Int, persona: PersonaRequest): ApiResult<MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.modificaPersona(ApiClient.bearer(token), id, persona))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    @DELETE("api/persone/{id}")
-    suspend fun eliminaPersona(
-        @Header("Authorization") token: String,
-        @Path("id") id: Int
-    ): Response<MessaggioResponse>
+    suspend fun eliminaPersona(token: String, id: Int): ApiResult<MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.eliminaPersona(ApiClient.bearer(token), id))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    // ---------- Campi personalizzati ----------
+    suspend fun listaCampi(token: String): ApiResult<List<CampoCustom>> {
+        return try {
+            gestisciRisposta(api.listaCampi(ApiClient.bearer(token)))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    @GET("api/campi")
-    suspend fun listaCampi(
-        @Header("Authorization") token: String
-    ): Response<List<CampoCustom>>
+    suspend fun creaCampo(token: String, nome: String): ApiResult<MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.creaCampo(ApiClient.bearer(token), mapOf("nome" to nome)))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    @POST("api/campi")
-    suspend fun creaCampo(
-        @Header("Authorization") token: String,
-        @Body body: Map<String, String>
-    ): Response<MessaggioResponse>
+    suspend fun eliminaCampo(token: String, id: Int): ApiResult<MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.eliminaCampo(ApiClient.bearer(token), id))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    @DELETE("api/campi/{id}")
-    suspend fun eliminaCampo(
-        @Header("Authorization") token: String,
-        @Path("id") id: Int
-    ): Response<MessaggioResponse>
+    suspend fun svuotaDatabase(token: String): ApiResult<MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.svuotaDatabase(ApiClient.bearer(token)))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    // ---------- Amministrazione ----------
+    suspend fun importaXlsx(token: String, nomeFile: String, bytes: ByteArray): ApiResult<ImportResponse> {
+        return try {
+            val requestBody = bytes.toRequestBody(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".toMediaTypeOrNull()
+            )
+            val part = MultipartBody.Part.createFormData("file", nomeFile, requestBody)
+            gestisciRisposta(api.importaXlsx(ApiClient.bearer(token), part))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    @POST("api/admin/svuota")
-    suspend fun svuotaDatabase(
-        @Header("Authorization") token: String,
-        @Body body: ConfermaSvuota = ConfermaSvuota()
-    ): Response<MessaggioResponse>
+    suspend fun allineaCategorie(token: String): ApiResult<AllineaResponse> {
+        return try {
+            gestisciRisposta(api.allineaCategorie(ApiClient.bearer(token)))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    @Multipart
-    @POST("api/admin/importa")
-    suspend fun importaXlsx(
-        @Header("Authorization") token: String,
-        @Part file: MultipartBody.Part
-    ): Response<ImportResponse>
+    suspend fun listaLog(token: String): ApiResult<List<LogAdmin>> {
+        return try {
+            gestisciRisposta(api.listaLog(ApiClient.bearer(token)))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    @POST("api/admin/allinea-categorie")
-    suspend fun allineaCategorie(
-        @Header("Authorization") token: String
-    ): Response<AllineaResponse>
-
-    @GET("api/admin/log")
-    suspend fun listaLog(
-        @Header("Authorization") token: String,
-        @Query("limite") limite: Int = 50
-    ): Response<List<LogAdmin>>
-
-    @GET("api/admin/export-xlsx")
+    /** Scarica un export xlsx applicando i filtri opzionali. Ritorna i bytes del file. */
     suspend fun exportXlsx(
-        @Header("Authorization") token: String,
-        @Query("q") query: String? = null,
-        @Query("regione") regione: String? = null,
-        @Query("societa") societa: String? = null,
-        @Query("ruolo") ruolo: String? = null,
-        @Query("quick_report") quickReport: String? = null,
-        @QueryMap extra: Map<String, String> = emptyMap()
-    ): Response<okhttp3.ResponseBody>
+        token: String,
+        query: String? = null,
+        regione: String? = null,
+        societa: String? = null,
+        ruolo: String? = null,
+        quickReport: String? = null,
+        filtriExtra: Map<String, String> = emptyMap()
+    ): ApiResult<ByteArray> {
+        return try {
+            val extraQuery = filtriExtra.mapKeys { "extra_${it.key}" }
+            val risposta = api.exportXlsx(
+                ApiClient.bearer(token),
+                query?.takeIf { it.isNotBlank() },
+                regione?.takeIf { it.isNotBlank() },
+                societa?.takeIf { it.isNotBlank() },
+                ruolo?.takeIf { it.isNotBlank() },
+                quickReport?.takeIf { it.isNotBlank() },
+                extraQuery
+            )
+            if (risposta.isSuccessful) {
+                val bytes = risposta.body()?.bytes() ?: ByteArray(0)
+                ApiResult.Successo(bytes)
+            } else {
+                ApiResult.Errore("Errore ${risposta.code()} durante l'export", risposta.code())
+            }
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
 
-    @GET("api/admin/export-pdf")
     suspend fun exportPdf(
-        @Header("Authorization") token: String,
-        @Query("q") query: String? = null,
-        @Query("regione") regione: String? = null,
-        @Query("societa") societa: String? = null,
-        @Query("ruolo") ruolo: String? = null,
-        @Query("quick_report") quickReport: String? = null,
-        @QueryMap extra: Map<String, String> = emptyMap()
-    ): Response<okhttp3.ResponseBody>
+        token: String,
+        query: String? = null,
+        regione: String? = null,
+        societa: String? = null,
+        ruolo: String? = null,
+        quickReport: String? = null,
+        filtriExtra: Map<String, String> = emptyMap()
+    ): ApiResult<ByteArray> {
+        return try {
+            val extraQuery = filtriExtra.mapKeys { "extra_${it.key}" }
+            val risposta = api.exportPdf(
+                ApiClient.bearer(token),
+                query?.takeIf { it.isNotBlank() },
+                regione?.takeIf { it.isNotBlank() },
+                societa?.takeIf { it.isNotBlank() },
+                ruolo?.takeIf { it.isNotBlank() },
+                quickReport?.takeIf { it.isNotBlank() },
+                extraQuery
+            )
+            if (risposta.isSuccessful) {
+                val bytes = risposta.body()?.bytes() ?: ByteArray(0)
+                ApiResult.Successo(bytes)
+            } else {
+                ApiResult.Errore("Errore ${risposta.code()} durante l'export", risposta.code())
+            }
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    private fun <T> gestisciRisposta(risposta: Response<T>): ApiResult<T> {
+        return if (risposta.isSuccessful && risposta.body() != null) {
+            ApiResult.Successo(risposta.body()!!)
+        } else {
+            val corpoErrore = risposta.errorBody()?.string()
+            val messaggio = corpoErrore
+                ?.substringAfter("\"errore\":\"")
+                ?.substringBefore("\"")
+                ?.takeIf { it.isNotBlank() }
+                ?: "Errore ${risposta.code()}"
+            ApiResult.Errore(messaggio, risposta.code())
+        }
+    }
 }
