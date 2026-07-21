@@ -1,6 +1,7 @@
 package com.scoutingsampdoria.persone.repository
 
 import com.scoutingsampdoria.persone.data.model.AllineaResponse
+import com.scoutingsampdoria.persone.data.model.AnteprimaExport
 import com.scoutingsampdoria.persone.data.model.CampoCustom
 import com.scoutingsampdoria.persone.data.model.ImportResponse
 import com.scoutingsampdoria.persone.data.model.ListaPersoneResponse
@@ -137,6 +138,33 @@ class PersoneRepository {
     suspend fun allineaCategorie(token: String): ApiResult<AllineaResponse> {
         return try {
             gestisciRisposta(api.allineaCategorie(ApiClient.bearer(token)))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun exportAnteprima(
+        token: String,
+        query: String? = null,
+        regione: String? = null,
+        societa: String? = null,
+        ruolo: String? = null,
+        quickReport: String? = null,
+        filtriExtra: Map<String, String> = emptyMap()
+    ): ApiResult<AnteprimaExport> {
+        return try {
+            val extraQuery = filtriExtra.mapKeys { "extra_${it.key}" }
+            gestisciRisposta(
+                api.exportAnteprima(
+                    ApiClient.bearer(token),
+                    query?.takeIf { it.isNotBlank() },
+                    regione?.takeIf { it.isNotBlank() },
+                    societa?.takeIf { it.isNotBlank() },
+                    ruolo?.takeIf { it.isNotBlank() },
+                    quickReport?.takeIf { it.isNotBlank() },
+                    extraQuery
+                )
+            )
         } catch (e: Exception) {
             ApiResult.Errore("Impossibile contattare il server: ${e.message}")
         }
