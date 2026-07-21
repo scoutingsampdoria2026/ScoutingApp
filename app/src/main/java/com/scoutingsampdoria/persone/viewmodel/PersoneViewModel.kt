@@ -33,6 +33,33 @@ class PersoneViewModel(
     var campiCustom by mutableStateOf<List<CampoCustom>>(emptyList())
         private set
 
+    // Filtri correnti (per riapplicarli al ricarico)
+    var filtroQuery by mutableStateOf<String?>(null)
+        private set
+    var filtroRegione by mutableStateOf<String?>(null)
+        private set
+    var filtroRuolo by mutableStateOf<String?>(null)
+        private set
+    var filtroSocieta by mutableStateOf<String?>(null)
+        private set
+    var filtroQuickReport by mutableStateOf<String?>(null)
+        private set
+    // Filtri per campi custom: nome campo -> valore selezionato
+    var filtriExtra by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
+
+    // Valori distinti disponibili per i menu a tendina
+    var valoriRegione by mutableStateOf<List<String>>(emptyList())
+        private set
+    var valoriRuolo by mutableStateOf<List<String>>(emptyList())
+        private set
+    var valoriSocieta by mutableStateOf<List<String>>(emptyList())
+        private set
+    var valoriQuickReport by mutableStateOf<List<String>>(emptyList())
+        private set
+    var valoriExtra by mutableStateOf<Map<String, List<String>>>(emptyMap())
+        private set
+
     fun caricaCampiCustom() {
         viewModelScope.launch {
             val token = tokenManager.getToken() ?: return@launch
@@ -43,7 +70,37 @@ class PersoneViewModel(
         }
     }
 
-    fun caricaLista(query: String? = null, regione: String? = null) {
+    fun impostaFiltro(query: String? = filtroQuery, regione: String? = filtroRegione, ruolo: String? = filtroRuolo,
+                     societa: String? = filtroSocieta, quickReport: String? = filtroQuickReport) {
+        filtroQuery = query
+        filtroRegione = regione
+        filtroRuolo = ruolo
+        filtroSocieta = societa
+        filtroQuickReport = quickReport
+        caricaLista()
+    }
+
+    fun impostaFiltroExtra(nomeCampo: String, valore: String?) {
+        filtriExtra = if (valore == null) {
+            filtriExtra - nomeCampo
+        } else {
+            filtriExtra + (nomeCampo to valore)
+        }
+        caricaLista()
+    }
+
+    fun azzeraFiltri() {
+        filtroQuery = null
+        filtroRegione = null
+        filtroRuolo = null
+        filtroSocieta = null
+        filtroQuickReport = null
+        filtriExtra = emptyMap()
+        caricaLista()
+    }
+
+    fun caricaLista(query: String? = filtroQuery) {
+        if (query != filtroQuery) filtroQuery = query
         caricamento = true
         errore = null
         viewModelScope.launch {
@@ -53,10 +110,34 @@ class PersoneViewModel(
                 caricamento = false
                 return@launch
             }
-            when (val risultato = repository.listaPersone(token, query = query, regione = regione)) {
+            when (val risultato = repository.listaPersone(
+                token,
+                query = filtroQuery,
+                regione = filtroRegione,
+                societa = filtroSocieta,
+                ruolo = filtroRuolo
+            )) {
                 is ApiResult.Successo -> {
-                    persone = risultato.dati.risultati
+                    var lista = risultato.dati.risultati
+
+                    // Filtro locale per quick_report (l'API già lo supporta ma per consistenza)
+                    filtroQuickReport?.let { qr ->
+                        lista = lista.filter { it.quickReport == qr }
+                    }
+
+                    // Filtri locali sui campi custom (extra)
+                    if (filtriExtra.isNotEmpty()) {
+                        lista = lista.filter { p ->
+                            filtriExtra.all { (campo, valore) ->
+                                p.extra?.get(campo) == valore
+                            }
+                        }
+                    }
+
+                    persone = lista
                     totale = risultato.dati.totale
+                    // Aggiorna i valori disponibili dai risultati (per popolare i menu)
+                    aggiornaValoriDisponibili(risultato.dati.risultati)
                     caricamento = false
                 }
                 is ApiResult.Errore -> {
@@ -65,6 +146,22 @@ class PersoneViewModel(
                 }
             }
         }
+    }
+
+    private fun aggiornaValoriDisponibili(tutte: List<Persona>) {
+        valoriRegione = tutte.mapNotNull { it.regione?.takeIf { s -> s.isNotBlank() } }.distinct().sorted()
+        valoriRuolo = tutte.mapNotNull { it.ruolo?.takeIf { s -> s.isNotBlank() } }.distinct().sorted()
+        valoriSocieta = tutte.mapNotNull { it.societa?.takeIf { s -> s.isNotBlank() } }.distinct().sorted()
+        valoriQuickReport = tutte.mapNotNull { it.quickReport?.takeIf { s -> s.isNotBlank() } }.distinct().sorted()
+
+        // Per ogni campo custom, raccogli i valori distinti presenti nei dati
+        val valoriPerCampo = mutableMapOf<String, List<String>>()
+        campiCustom.forEach { campo ->
+            val valori = tutte.mapNotNull { it.extra?.get(campo.nome)?.takeIf { s -> s.isNotBlank() } }
+                .distinct().sorted()
+            if (valori.isNotEmpty()) valoriPerCampo[campo.nome] = valori
+        }
+        valoriExtra = valoriPerCampo
     }
 
     fun caricaDettaglio(id: Int) {
