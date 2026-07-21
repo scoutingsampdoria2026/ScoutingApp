@@ -1,5 +1,6 @@
 package com.scoutingsampdoria.persone.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,8 +45,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.scoutingsampdoria.persone.R
 import com.scoutingsampdoria.persone.data.model.Persona
 import com.scoutingsampdoria.persone.ui.theme.SampColors
 import com.scoutingsampdoria.persone.viewmodel.PersoneViewModel
@@ -73,13 +77,32 @@ fun PersonListScreen(
         topBar = {
             Column {
                 TopAppBar(
+                    // Logo Sampdoria a sinistra
+                    navigationIcon = {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo_sampdoria),
+                            contentDescription = "Logo U.C. Sampdoria",
+                            modifier = Modifier
+                                .padding(start = 12.dp)
+                                .size(40.dp)
+                        )
+                    },
+                    // Titolo centrato con contatore sotto
                     title = {
-                        Column {
-                            Text("Scouting Sampdoria", fontWeight = FontWeight.Bold)
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
                             Text(
-                                "${viewModel.totale} giocatori",
+                                text = "Scouting Sampdoria",
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = "${viewModel.totale} giocatori",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                                textAlign = TextAlign.Center
                             )
                         }
                     },
