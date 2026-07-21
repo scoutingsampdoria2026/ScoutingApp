@@ -79,13 +79,18 @@ fun PersonListScreen(
                 TopAppBar(
                     // Logo Sampdoria a sinistra
                     navigationIcon = {
-                        Image(
-                            painter = painterResource(id = R.drawable.logo_sampdoria),
-                            contentDescription = "Logo U.C. Sampdoria",
+                        Box(
                             modifier = Modifier
                                 .padding(start = 12.dp)
-                                .size(40.dp)
-                        )
+                                .size(40.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.logo_sampdoria),
+                                contentDescription = "Logo U.C. Sampdoria",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     },
                     // Titolo centrato con contatore sotto
                     title = {
