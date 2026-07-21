@@ -92,3 +92,11 @@ data class LogAdmin(
     val utente: String?,
     @SerializedName("creato_il") val creatoIl: String?
 )
+
+data class AnteprimaExport(
+    val titolo: String,
+    val totale: Int,
+    @SerializedName("campi_custom") val campiCustom: List<String>,
+    @SerializedName("filtri_descritti") val filtriDescritti: List<String>,
+    val righe: List<Map<String, String>>
+)
