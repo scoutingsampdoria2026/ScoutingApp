@@ -186,6 +186,7 @@ interface PersoneApi {
     @GET("api/convocazioni/{id}/export-pdf")
     suspend fun exportConvocazionePdf(
         @Header("Authorization") token: String,
-        @retrofit2.http.Path("id") id: Int
+        @retrofit2.http.Path("id") id: Int,
+        @Query("include_campo") includeCampo: Int = 1
     ): Response<okhttp3.ResponseBody>
 }
