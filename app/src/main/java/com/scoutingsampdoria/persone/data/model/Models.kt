@@ -100,3 +100,54 @@ data class AnteprimaExport(
     @SerializedName("filtri_descritti") val filtriDescritti: List<String>,
     val righe: List<Map<String, String>>
 )
+
+data class Convocazione(
+    val id: Int,
+    val categoria: String,
+    val data: String?,
+    val ora: String?,
+    val impianto: String?,
+    @SerializedName("squadra_casa") val squadraCasa: String?,
+    @SerializedName("squadra_ospite") val squadraOspite: String?,
+    val modulo: String?,
+    val note: String?,
+    val giocatori: List<ConvocazioneGiocatore>? = null,
+    @SerializedName("creato_il") val creatoIl: String? = null,
+    @SerializedName("aggiornato_il") val aggiornatoIl: String? = null
+)
+
+data class ConvocazioneGiocatore(
+    val id: Int? = null,
+    @SerializedName("persona_id") val personaId: Int?,
+    val numero: Int?,
+    val ordine: Int,
+    val cognome: String? = null,
+    val nome: String? = null,
+    val ruolo: String? = null
+)
+
+data class ConvocazioneCreaRequest(
+    val categoria: String,
+    val data: String? = null,
+    val ora: String? = null,
+    val impianto: String? = null,
+    @SerializedName("squadra_casa") val squadraCasa: String? = null,
+    @SerializedName("squadra_ospite") val squadraOspite: String? = null,
+    val modulo: String? = null,
+    val note: String? = null,
+    @SerializedName("numero_caselle") val numeroCaselle: Int = 20
+)
+
+data class ConvocazioneAggiornaRequest(
+    val data: String? = null,
+    val ora: String? = null,
+    val impianto: String? = null,
+    @SerializedName("squadra_casa") val squadraCasa: String? = null,
+    @SerializedName("squadra_ospite") val squadraOspite: String? = null,
+    val modulo: String? = null,
+    val note: String? = null
+)
+
+data class ConvocazioneGiocatoriRequest(
+    val giocatori: List<ConvocazioneGiocatore>
+)
