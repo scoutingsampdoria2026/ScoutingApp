@@ -686,9 +686,9 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
                 val xDp = larghezzaTotale * xRel
                 val yDp = altezzaTotale * (1 - yRel)
 
-                // Area del pallino: larga per contenere cognomi anche lunghi
-                val larghezzaPallino = larghezzaTotale * 0.28f
-                val altezzaPallino = larghezzaTotale * 0.25f
+                // Area del giocatore: più grande per mostrare bene i dettagli della maglia
+                val larghezzaGiocatore = larghezzaTotale * 0.36f
+                val altezzaGiocatore = larghezzaTotale * 0.36f
 
                 val idGiocatoreQui = assegnazioni[indice]
                 val giocatore = giocatoriTitolari.firstOrNull { it.id == idGiocatoreQui }
@@ -698,10 +698,10 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
                 Box(
                     modifier = Modifier
                         .offset(
-                            x = xDp - larghezzaPallino / 2,
-                            y = yDp - altezzaPallino / 2
+                            x = xDp - larghezzaGiocatore / 2,
+                            y = yDp - altezzaGiocatore / 2
                         )
-                        .size(larghezzaPallino, altezzaPallino)
+                        .size(larghezzaGiocatore, altezzaGiocatore)
                         .clickable { menuAperto = true },
                     contentAlignment = Alignment.Center
                 ) {
@@ -710,34 +710,45 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
                         verticalArrangement = Arrangement.Center,
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        // Cerchio con numero grande
-                        val coloreCerchio = if (giocatore != null) Color(0xFF003D7A) else Color(0xFF888888)
-                        Box(
+                        // Calciatore stilizzato (in mancanza di giocatore assegnato, versione "vuota")
+                        val isPortiere = giocatore?.numero == 1
+                        val assegnato = giocatore != null
+                        CalciatoreStilizzato(
+                            isPortiere = isPortiere,
+                            assegnato = assegnato,
                             modifier = Modifier
-                                .size(larghezzaTotale * 0.15f)
-                                .background(coloreCerchio, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = giocatore?.numero?.toString() ?: "?",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 22.sp
-                            )
-                        }
+                                .size(larghezzaTotale * 0.26f)
+                        )
 
-                        // Cognome sotto il cerchio (non tagliato)
+                        Spacer(Modifier.height(2.dp))
+
+                        // Numero + cognome sotto (leggibili)
                         if (giocatore != null) {
-                            Spacer(Modifier.height(2.dp))
+                            // "N.  COGNOME" su una riga (con contrasto per la leggibilità sul verde)
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        color = Color.Black.copy(alpha = 0.55f),
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "${giocatore.numero}. ${(giocatore.cognome ?: "").uppercase()}",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        } else {
                             Text(
-                                text = (giocatore.cognome ?: "").uppercase(),
+                                text = "?",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.fillMaxWidth()
+                                fontSize = 14.sp
                             )
                         }
                     }
@@ -790,6 +801,228 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
         )
 
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+/**
+ * Disegna un calciatore stilizzato con testa, maglia, pantaloncini e calzettoni.
+ * - Portiere: maglia rossa, pantaloncini/calzettoni neri
+ * - Movimento: maglia blucerchiata (blu con fascia bianco-rosso-nero), pantaloncini/calzettoni bianchi
+ * - Vuoto (non assegnato): grigio con opacità ridotta
+ */
+@Composable
+private fun CalciatoreStilizzato(
+    isPortiere: Boolean,
+    assegnato: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val opacita = if (assegnato) 1f else 0.55f
+
+    val coloreMaglia = when {
+        !assegnato -> Color(0xFF888888)
+        isPortiere -> Color(0xFFD8232A)  // rosso portiere
+        else -> Color(0xFF003D7A)         // blu Sampdoria
+    }
+    val colorePantaloncini = when {
+        !assegnato -> Color(0xFFAAAAAA)
+        isPortiere -> Color(0xFF1A1A1A)   // neri
+        else -> Color.White               // bianchi
+    }
+    val coloreCalzettoni = colorePantaloncini
+    val colorePelle = Color(0xFFF2C7A0).copy(alpha = opacita)
+
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        // Proporzioni approssimative di un omino stilizzato (verticali):
+        // 0.00-0.22 → testa
+        // 0.22-0.60 → maglia (con maniche laterali)
+        // 0.60-0.78 → pantaloncini
+        // 0.78-1.00 → calzettoni
+
+        // --- Testa ---
+        val raggioTesta = w * 0.14f
+        val centroTestaY = h * 0.15f
+        drawCircle(
+            color = colorePelle,
+            radius = raggioTesta,
+            center = Offset(w / 2, centroTestaY)
+        )
+
+        // --- Maglia (busto centrale) ---
+        val magliaX = w * 0.28f
+        val magliaY = h * 0.28f
+        val magliaW = w * 0.44f
+        val magliaH = h * 0.32f
+
+        if (assegnato && !isPortiere) {
+            // Maglia Sampdoria: 6 fasce orizzontali (blu-bianco-rosso-nero-bianco-blu)
+            // Le fasce hanno altezze diverse per rispettare l'aspetto ufficiale del kit:
+            // le due blu esterne sono più larghe delle strisce centrali colorate.
+            val bluSampdoria = Color(0xFF003D7A)
+            val rossoSamp = Color(0xFFD8232A)
+            val neroSamp = Color(0xFF1A1A1A)
+
+            // Proporzioni relative delle 6 fasce (totale = 1.0)
+            val propBluAlto = 0.28f
+            val propBianco1 = 0.10f
+            val propRosso = 0.10f
+            val propNero = 0.10f
+            val propBianco2 = 0.10f
+            val propBluBasso = 0.32f
+
+            var yCorrente = magliaY
+
+            // 1. Blu alto
+            drawRect(
+                color = bluSampdoria,
+                topLeft = Offset(magliaX, yCorrente),
+                size = Size(magliaW, magliaH * propBluAlto)
+            )
+            yCorrente += magliaH * propBluAlto
+
+            // 2. Bianco
+            drawRect(
+                color = Color.White,
+                topLeft = Offset(magliaX, yCorrente),
+                size = Size(magliaW, magliaH * propBianco1)
+            )
+            yCorrente += magliaH * propBianco1
+
+            // 3. Rosso
+            drawRect(
+                color = rossoSamp,
+                topLeft = Offset(magliaX, yCorrente),
+                size = Size(magliaW, magliaH * propRosso)
+            )
+            yCorrente += magliaH * propRosso
+
+            // 4. Nero
+            drawRect(
+                color = neroSamp,
+                topLeft = Offset(magliaX, yCorrente),
+                size = Size(magliaW, magliaH * propNero)
+            )
+            yCorrente += magliaH * propNero
+
+            // 5. Bianco
+            drawRect(
+                color = Color.White,
+                topLeft = Offset(magliaX, yCorrente),
+                size = Size(magliaW, magliaH * propBianco2)
+            )
+            yCorrente += magliaH * propBianco2
+
+            // 6. Blu basso
+            drawRect(
+                color = bluSampdoria,
+                topLeft = Offset(magliaX, yCorrente),
+                size = Size(magliaW, magliaH * propBluBasso)
+            )
+        } else {
+            // Maglia tinta unita (portiere rossa o vuoto grigio)
+            drawRect(
+                color = coloreMaglia,
+                topLeft = Offset(magliaX, magliaY),
+                size = Size(magliaW, magliaH)
+            )
+        }
+
+        // --- Maniche (rettangoli laterali che sporgono dalla maglia) ---
+        // Per il portiere: maniche rosse. Per movimento: maniche blu Sampdoria (colore delle spalle)
+        val coloreManiche = when {
+            !assegnato -> Color(0xFF888888)
+            isPortiere -> Color(0xFFD8232A)
+            else -> Color(0xFF003D7A)
+        }
+        val manicaLarghezza = w * 0.12f
+        val manicaAltezza = h * 0.14f
+        // Manica sinistra
+        drawRect(
+            color = coloreManiche,
+            topLeft = Offset(magliaX - manicaLarghezza, magliaY + h * 0.02f),
+            size = Size(manicaLarghezza, manicaAltezza)
+        )
+        // Manica destra
+        drawRect(
+            color = coloreManiche,
+            topLeft = Offset(magliaX + magliaW, magliaY + h * 0.02f),
+            size = Size(manicaLarghezza, manicaAltezza)
+        )
+
+        // --- Braccia (piccole zone di pelle sotto le maniche) ---
+        val brazzoLarghezza = manicaLarghezza * 0.75f
+        val brazzoAltezza = h * 0.10f
+        // Braccio sinistro
+        drawRect(
+            color = colorePelle,
+            topLeft = Offset(
+                magliaX - manicaLarghezza + (manicaLarghezza - brazzoLarghezza) / 2,
+                magliaY + h * 0.02f + manicaAltezza
+            ),
+            size = Size(brazzoLarghezza, brazzoAltezza)
+        )
+        // Braccio destro
+        drawRect(
+            color = colorePelle,
+            topLeft = Offset(
+                magliaX + magliaW + (manicaLarghezza - brazzoLarghezza) / 2,
+                magliaY + h * 0.02f + manicaAltezza
+            ),
+            size = Size(brazzoLarghezza, brazzoAltezza)
+        )
+
+        // --- Pantaloncini ---
+        val pantaloniX = w * 0.30f
+        val pantaloniY = h * 0.60f
+        val pantaloniW = w * 0.40f
+        val pantaloniH = h * 0.16f
+        drawRect(
+            color = colorePantaloncini,
+            topLeft = Offset(pantaloniX, pantaloniY),
+            size = Size(pantaloniW, pantaloniH)
+        )
+        // Separatore centrale dei pantaloncini
+        drawLine(
+            color = Color.Black.copy(alpha = 0.25f * opacita),
+            start = Offset(w / 2, pantaloniY),
+            end = Offset(w / 2, pantaloniY + pantaloniH),
+            strokeWidth = 1.5f
+        )
+
+        // --- Gambe (pelle) tra pantaloncini e calzettoni ---
+        val gambaLarghezza = w * 0.13f
+        val gambaAltezza = h * 0.06f
+        val gambaY = pantaloniY + pantaloniH
+        // Gamba sinistra
+        drawRect(
+            color = colorePelle,
+            topLeft = Offset(w / 2 - w * 0.13f, gambaY),
+            size = Size(gambaLarghezza, gambaAltezza)
+        )
+        // Gamba destra
+        drawRect(
+            color = colorePelle,
+            topLeft = Offset(w / 2, gambaY),
+            size = Size(gambaLarghezza, gambaAltezza)
+        )
+
+        // --- Calzettoni ---
+        val calzettoniY = gambaY + gambaAltezza
+        val calzettoniH = h * 0.16f
+        // Calzettone sinistro
+        drawRect(
+            color = coloreCalzettoni,
+            topLeft = Offset(w / 2 - w * 0.13f, calzettoniY),
+            size = Size(gambaLarghezza, calzettoniH)
+        )
+        // Calzettone destro
+        drawRect(
+            color = coloreCalzettoni,
+            topLeft = Offset(w / 2, calzettoniY),
+            size = Size(gambaLarghezza, calzettoniH)
+        )
     }
 }
 
