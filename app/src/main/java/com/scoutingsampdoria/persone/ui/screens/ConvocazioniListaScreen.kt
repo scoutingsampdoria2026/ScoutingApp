@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
@@ -63,6 +64,7 @@ fun ConvocazioniListaScreen(
     onApriConvocazione: (Int) -> Unit
 ) {
     var mostraDialogNuova by remember { mutableStateOf(false) }
+    var convocazioneDaEliminare by remember { mutableStateOf<Convocazione?>(null) }
 
     LaunchedEffect(categoria) {
         viewModel.caricaConvocazioniPerCategoria(categoria)
@@ -144,7 +146,11 @@ fun ConvocazioniListaScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         items(viewModel.convocazioni) { conv ->
-                            SchedaConvocazione(conv, onClick = { onApriConvocazione(conv.id) })
+                            SchedaConvocazione(
+                                convocazione = conv,
+                                onClick = { onApriConvocazione(conv.id) },
+                                onElimina = { convocazioneDaEliminare = conv }
+                            )
                         }
                         item { Spacer(Modifier.height(88.dp)) }
                     }
@@ -172,10 +178,64 @@ fun ConvocazioniListaScreen(
             }
         )
     }
+
+    convocazioneDaEliminare?.let { conv ->
+        AlertDialog(
+            onDismissRequest = { convocazioneDaEliminare = null },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Delete, contentDescription = null, tint = SampColors.Rosso)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Eliminare la convocazione?", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        "${conv.squadraCasa ?: "Squadra casa"} vs ${conv.squadraOspite ?: "Squadra ospite"}",
+                        fontWeight = FontWeight.Bold,
+                        color = SampColors.Blu
+                    )
+                    conv.data?.let {
+                        Text(
+                            formattaDataItaliana(it),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SampColors.TestoSecondario
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "L'operazione è definitiva. La convocazione e tutti i giocatori assegnati verranno rimossi.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SampColors.TestoSecondario
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val id = conv.id
+                        convocazioneDaEliminare = null
+                        viewModel.eliminaConvocazione(id, categoria) { }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SampColors.Rosso)
+                ) {
+                    Text("Elimina", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { convocazioneDaEliminare = null }) { Text("Annulla") }
+            }
+        )
+    }
 }
 
 @Composable
-private fun SchedaConvocazione(convocazione: Convocazione, onClick: () -> Unit) {
+private fun SchedaConvocazione(
+    convocazione: Convocazione,
+    onClick: () -> Unit,
+    onElimina: () -> Unit
+) {
     Card(
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -184,62 +244,77 @@ private fun SchedaConvocazione(convocazione: Convocazione, onClick: () -> Unit) 
             .fillMaxWidth()
             .padding(vertical = 4.dp)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Prima riga: squadre
-            val casa = convocazione.squadraCasa?.ifBlank { "Squadra casa" } ?: "Squadra casa"
-            val ospite = convocazione.squadraOspite?.ifBlank { "Squadra ospite" } ?: "Squadra ospite"
-            Text(
-                text = "$casa vs $ospite",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = SampColors.Blu
-            )
-            Spacer(Modifier.height(6.dp))
-
-            // Seconda riga: data + ora + impianto
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                convocazione.data?.takeIf { it.isNotBlank() }?.let {
-                    Icon(Icons.Filled.CalendarToday, contentDescription = null,
-                        modifier = Modifier.size(14.dp), tint = SampColors.TestoSecondario)
-                    Spacer(Modifier.width(4.dp))
-                    Text(formattaDataItaliana(it), style = MaterialTheme.typography.bodySmall,
-                        color = SampColors.TestoSecondario)
-                    Spacer(Modifier.width(12.dp))
-                }
-                convocazione.ora?.takeIf { it.isNotBlank() }?.let {
-                    Icon(Icons.Filled.Schedule, contentDescription = null,
-                        modifier = Modifier.size(14.dp), tint = SampColors.TestoSecondario)
-                    Spacer(Modifier.width(4.dp))
-                    Text(it, style = MaterialTheme.typography.bodySmall,
-                        color = SampColors.TestoSecondario)
-                }
-            }
-
-            convocazione.impianto?.takeIf { it.isNotBlank() }?.let {
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.LocationOn, contentDescription = null,
-                        modifier = Modifier.size(14.dp), tint = SampColors.TestoSecondario)
-                    Spacer(Modifier.width(4.dp))
-                    Text(it, style = MaterialTheme.typography.bodySmall,
-                        color = SampColors.TestoSecondario)
-                }
-            }
-
-            convocazione.modulo?.takeIf { it.isNotBlank() }?.let {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                // Prima riga: squadre
+                val casa = convocazione.squadraCasa?.ifBlank { "Squadra casa" } ?: "Squadra casa"
+                val ospite = convocazione.squadraOspite?.ifBlank { "Squadra ospite" } ?: "Squadra ospite"
+                Text(
+                    text = "$casa vs $ospite",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = SampColors.Blu
+                )
                 Spacer(Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier
-                        .background(SampColors.BluNebbia, RoundedCornerShape(4.dp))
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        "Modulo $it",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = SampColors.Blu,
-                        fontWeight = FontWeight.Bold
-                    )
+
+                // Seconda riga: data + ora + impianto
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    convocazione.data?.takeIf { it.isNotBlank() }?.let {
+                        Icon(Icons.Filled.CalendarToday, contentDescription = null,
+                            modifier = Modifier.size(14.dp), tint = SampColors.TestoSecondario)
+                        Spacer(Modifier.width(4.dp))
+                        Text(formattaDataItaliana(it), style = MaterialTheme.typography.bodySmall,
+                            color = SampColors.TestoSecondario)
+                        Spacer(Modifier.width(12.dp))
+                    }
+                    convocazione.ora?.takeIf { it.isNotBlank() }?.let {
+                        Icon(Icons.Filled.Schedule, contentDescription = null,
+                            modifier = Modifier.size(14.dp), tint = SampColors.TestoSecondario)
+                        Spacer(Modifier.width(4.dp))
+                        Text(it, style = MaterialTheme.typography.bodySmall,
+                            color = SampColors.TestoSecondario)
+                    }
                 }
+
+                convocazione.impianto?.takeIf { it.isNotBlank() }?.let {
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.LocationOn, contentDescription = null,
+                            modifier = Modifier.size(14.dp), tint = SampColors.TestoSecondario)
+                        Spacer(Modifier.width(4.dp))
+                        Text(it, style = MaterialTheme.typography.bodySmall,
+                            color = SampColors.TestoSecondario)
+                    }
+                }
+
+                convocazione.modulo?.takeIf { it.isNotBlank() }?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(SampColors.BluNebbia, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            "Modulo $it",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = SampColors.Blu,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // Pulsante elimina
+            IconButton(onClick = onElimina) {
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = "Elimina convocazione",
+                    tint = SampColors.Rosso,
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
     }
