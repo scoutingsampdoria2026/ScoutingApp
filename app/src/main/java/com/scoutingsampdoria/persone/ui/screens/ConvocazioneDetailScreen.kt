@@ -686,9 +686,10 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
                 val xDp = larghezzaTotale * xRel
                 val yDp = altezzaTotale * (1 - yRel)
 
-                // Area del giocatore: più grande per mostrare bene i dettagli della maglia
-                val larghezzaGiocatore = larghezzaTotale * 0.36f
-                val altezzaGiocatore = larghezzaTotale * 0.36f
+                // Area del giocatore: contiene il disegno + il badge sotto.
+                // Deve essere proporzionata al disegno per evitare sovrapposizioni cliccabili.
+                val larghezzaGiocatore = larghezzaTotale * 0.26f
+                val altezzaGiocatore = larghezzaTotale * 0.30f
 
                 val idGiocatoreQui = assegnazioni[indice]
                 val giocatore = giocatoriTitolari.firstOrNull { it.id == idGiocatoreQui }
@@ -717,27 +718,26 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
                             isPortiere = isPortiere,
                             assegnato = assegnato,
                             modifier = Modifier
-                                .size(larghezzaTotale * 0.26f)
+                                .size(larghezzaTotale * 0.22f)
                         )
 
                         Spacer(Modifier.height(2.dp))
 
                         // Numero + cognome sotto (leggibili)
                         if (giocatore != null) {
-                            // "N.  COGNOME" su una riga (con contrasto per la leggibilità sul verde)
                             Box(
                                 modifier = Modifier
                                     .background(
                                         color = Color.Black.copy(alpha = 0.55f),
                                         shape = RoundedCornerShape(4.dp)
                                     )
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Text(
                                     text = "${giocatore.numero}. ${(giocatore.cognome ?: "").uppercase()}",
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
+                                    fontSize = 15.sp,
                                     textAlign = TextAlign.Center,
                                     maxLines = 1,
                                     softWrap = false
@@ -748,7 +748,7 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
                                 text = "?",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
+                                fontSize = 18.sp
                             )
                         }
                     }
@@ -1029,46 +1029,46 @@ private fun CalciatoreStilizzato(
 private fun posizioniPerModulo(modulo: String): Map<Int, Pair<Float, Float>> {
     return when (modulo) {
         "4-4-2" -> mapOf(
-            1 to (0.5f to 0.06f),
+            1 to (0.5f to 0.11f),
             2 to (0.85f to 0.22f), 3 to (0.15f to 0.22f), 4 to (0.63f to 0.20f), 5 to (0.37f to 0.20f),
             7 to (0.85f to 0.50f), 8 to (0.60f to 0.48f), 10 to (0.40f to 0.48f), 11 to (0.15f to 0.50f),
             9 to (0.35f to 0.78f), 6 to (0.65f to 0.78f)
         )
         "4-3-3" -> mapOf(
-            1 to (0.5f to 0.06f),
+            1 to (0.5f to 0.11f),
             2 to (0.85f to 0.22f), 3 to (0.15f to 0.22f), 4 to (0.63f to 0.20f), 5 to (0.37f to 0.20f),
             8 to (0.5f to 0.44f), 6 to (0.25f to 0.44f), 10 to (0.75f to 0.44f),
             7 to (0.15f to 0.75f), 9 to (0.5f to 0.78f), 11 to (0.85f to 0.75f)
         )
         "4-2-3-1" -> mapOf(
-            1 to (0.5f to 0.06f),
+            1 to (0.5f to 0.11f),
             2 to (0.85f to 0.22f), 3 to (0.15f to 0.22f), 4 to (0.63f to 0.20f), 5 to (0.37f to 0.20f),
             6 to (0.35f to 0.40f), 8 to (0.65f to 0.40f),
             10 to (0.5f to 0.60f), 7 to (0.85f to 0.65f), 11 to (0.15f to 0.65f),
             9 to (0.5f to 0.82f)
         )
         "3-5-2" -> mapOf(
-            1 to (0.5f to 0.06f),
+            1 to (0.5f to 0.11f),
             2 to (0.80f to 0.22f), 5 to (0.5f to 0.20f), 3 to (0.20f to 0.22f),
             4 to (0.85f to 0.45f), 8 to (0.65f to 0.48f), 6 to (0.5f to 0.48f),
             10 to (0.35f to 0.48f), 11 to (0.15f to 0.45f),
             9 to (0.4f to 0.78f), 7 to (0.6f to 0.78f)
         )
         "3-4-3" -> mapOf(
-            1 to (0.5f to 0.06f),
+            1 to (0.5f to 0.11f),
             2 to (0.80f to 0.22f), 5 to (0.5f to 0.20f), 3 to (0.20f to 0.22f),
             7 to (0.85f to 0.48f), 8 to (0.62f to 0.48f), 10 to (0.38f to 0.48f), 11 to (0.15f to 0.48f),
             9 to (0.5f to 0.78f), 4 to (0.25f to 0.75f), 6 to (0.75f to 0.75f)
         )
         "4-3-1-2" -> mapOf(
-            1 to (0.5f to 0.06f),
+            1 to (0.5f to 0.11f),
             2 to (0.85f to 0.22f), 3 to (0.15f to 0.22f), 4 to (0.63f to 0.20f), 5 to (0.37f to 0.20f),
             6 to (0.25f to 0.42f), 8 to (0.5f to 0.42f), 7 to (0.75f to 0.42f),
             10 to (0.5f to 0.62f),
             9 to (0.35f to 0.80f), 11 to (0.65f to 0.80f)
         )
         "4-4-1-1" -> mapOf(
-            1 to (0.5f to 0.06f),
+            1 to (0.5f to 0.11f),
             2 to (0.85f to 0.22f), 3 to (0.15f to 0.22f), 4 to (0.63f to 0.20f), 5 to (0.37f to 0.20f),
             7 to (0.85f to 0.45f), 8 to (0.63f to 0.45f), 6 to (0.37f to 0.45f), 11 to (0.15f to 0.45f),
             10 to (0.5f to 0.65f),
