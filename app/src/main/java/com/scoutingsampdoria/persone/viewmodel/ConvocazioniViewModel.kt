@@ -194,12 +194,12 @@ class ConvocazioniViewModel(
         }
     }
 
-    fun esportaConvocazionePdf(id: Int, onCompletato: (ByteArray) -> Unit) {
+    fun esportaConvocazionePdf(id: Int, includeCampo: Boolean = true, onCompletato: (ByteArray) -> Unit) {
         caricamento = true
         errore = null
         viewModelScope.launch {
             val token = tokenManager.getToken() ?: return@launch
-            when (val r = repository.exportConvocazionePdf(token, id)) {
+            when (val r = repository.exportConvocazionePdf(token, id, includeCampo)) {
                 is ApiResult.Successo -> {
                     if (r.dati.isEmpty()) errore = "Il file è vuoto"
                     else {
