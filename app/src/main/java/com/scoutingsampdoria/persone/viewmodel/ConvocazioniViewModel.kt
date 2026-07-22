@@ -87,6 +87,7 @@ class ConvocazioniViewModel(
         categoria: String,
         data: String?,
         ora: String?,
+        oraConvocazione: String?,
         impianto: String?,
         squadraCasa: String?,
         squadraOspite: String?,
@@ -101,6 +102,7 @@ class ConvocazioniViewModel(
                 categoria = categoria,
                 data = data,
                 ora = ora,
+                oraConvocazione = oraConvocazione,
                 impianto = impianto,
                 squadraCasa = squadraCasa,
                 squadraOspite = squadraOspite,
@@ -110,9 +112,7 @@ class ConvocazioniViewModel(
             when (val r = repository.creaConvocazione(token, req)) {
                 is ApiResult.Successo -> {
                     messaggio = "Convocazione creata"
-                    // Recupero l'id dal messaggio... o meglio ricarico e prendo la più recente
                     caricaConvocazioniPerCategoria(categoria)
-                    // L'endpoint restituisce id ma nel MessaggioResponse non c'è, quindi ricarichiamo
                     val listaAggiornata = repository.listaConvocazioni(token, categoria)
                     if (listaAggiornata is ApiResult.Successo) {
                         listaAggiornata.dati.firstOrNull()?.let { onCreata(it.id) }
@@ -128,6 +128,7 @@ class ConvocazioniViewModel(
         id: Int,
         data: String?,
         ora: String?,
+        oraConvocazione: String?,
         impianto: String?,
         squadraCasa: String?,
         squadraOspite: String?,
@@ -139,7 +140,8 @@ class ConvocazioniViewModel(
         viewModelScope.launch {
             val token = tokenManager.getToken() ?: return@launch
             val req = ConvocazioneAggiornaRequest(
-                data = data, ora = ora, impianto = impianto,
+                data = data, ora = ora, oraConvocazione = oraConvocazione,
+                impianto = impianto,
                 squadraCasa = squadraCasa, squadraOspite = squadraOspite, modulo = modulo
             )
             when (val r = repository.aggiornaConvocazione(token, id, req)) {
