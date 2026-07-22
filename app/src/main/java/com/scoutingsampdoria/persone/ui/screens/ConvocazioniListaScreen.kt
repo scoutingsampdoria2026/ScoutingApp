@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -169,12 +171,13 @@ fun ConvocazioniListaScreen(
         DialogNuovaConvocazione(
             categoria = categoria,
             onAnnulla = { mostraDialogNuova = false },
-            onCrea = { data, ora, impianto, casa, ospite ->
+            onCrea = { data, ora, oraConvocazione, impianto, casa, ospite ->
                 mostraDialogNuova = false
                 viewModel.creaConvocazione(
                     categoria = categoria,
                     data = data.ifBlank { null },
                     ora = ora.ifBlank { null },
+                    oraConvocazione = oraConvocazione.ifBlank { null },
                     impianto = impianto.ifBlank { null },
                     squadraCasa = casa.ifBlank { null },
                     squadraOspite = ospite.ifBlank { null },
@@ -331,25 +334,28 @@ private fun SchedaConvocazione(
 private fun DialogNuovaConvocazione(
     categoria: String,
     onAnnulla: () -> Unit,
-    onCrea: (data: String, ora: String, impianto: String, casa: String, ospite: String) -> Unit
+    onCrea: (data: String, ora: String, oraConvocazione: String, impianto: String, casa: String, ospite: String) -> Unit
 ) {
     var data by remember { mutableStateOf("") }
     var ora by remember { mutableStateOf("") }
+    var oraConvocazione by remember { mutableStateOf("") }
     var impianto by remember { mutableStateOf("") }
     var casa by remember { mutableStateOf("Sampdoria $categoria") }
     var ospite by remember { mutableStateOf("") }
 
     var mostraDatePicker by remember { mutableStateOf(false) }
-    var mostraTimePicker by remember { mutableStateOf(false) }
+    var mostraTimePickerPartita by remember { mutableStateOf(false) }
+    var mostraTimePickerConvocazione by remember { mutableStateOf(false) }
 
     val datePickerState = rememberDatePickerState()
-    val timePickerState = rememberTimePickerState(is24Hour = true)
+    val timePickerStatePartita = rememberTimePickerState(is24Hour = true)
+    val timePickerStateConvocazione = rememberTimePickerState(is24Hour = true)
 
     AlertDialog(
         onDismissRequest = onAnnulla,
         title = { Text("Nuova convocazione", fontWeight = FontWeight.Bold) },
         text = {
-            Column {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text(
                     "Categoria: $categoria",
                     style = MaterialTheme.typography.labelMedium,
@@ -358,7 +364,6 @@ private fun DialogNuovaConvocazione(
                 )
                 Spacer(Modifier.height(12.dp))
 
-                // Data (calendario)
                 OutlinedTextField(
                     value = data.ifBlank { "" }.let { if (it.isNotBlank()) formattaDataItaliana(it) else "" },
                     onValueChange = { },
@@ -376,21 +381,37 @@ private fun DialogNuovaConvocazione(
                 )
                 Spacer(Modifier.height(8.dp))
 
-                // Ora (orologio)
                 OutlinedTextField(
                     value = ora,
                     onValueChange = { },
                     readOnly = true,
-                    label = { Text("Ora") },
+                    label = { Text("Ora partita") },
                     placeholder = { Text("Tocca per selezionare") },
                     trailingIcon = {
-                        IconButton(onClick = { mostraTimePicker = true }) {
+                        IconButton(onClick = { mostraTimePickerPartita = true }) {
                             Icon(Icons.Filled.Schedule, contentDescription = "Scegli ora")
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { mostraTimePicker = true }
+                        .clickable { mostraTimePickerPartita = true }
+                )
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = oraConvocazione,
+                    onValueChange = { },
+                    readOnly = true,
+                    label = { Text("Ora convocazione") },
+                    placeholder = { Text("Tocca per selezionare") },
+                    trailingIcon = {
+                        IconButton(onClick = { mostraTimePickerConvocazione = true }) {
+                            Icon(Icons.Filled.Schedule, contentDescription = "Scegli ora convocazione")
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { mostraTimePickerConvocazione = true }
                 )
                 Spacer(Modifier.height(8.dp))
 
@@ -421,7 +442,7 @@ private fun DialogNuovaConvocazione(
         },
         confirmButton = {
             Button(
-                onClick = { onCrea(data, ora, impianto, casa, ospite) },
+                onClick = { onCrea(data, ora, oraConvocazione, impianto, casa, ospite) },
                 colors = ButtonDefaults.buttonColors(containerColor = SampColors.Blu)
             ) {
                 Text("Crea", color = Color.White)
@@ -455,25 +476,48 @@ private fun DialogNuovaConvocazione(
         }
     }
 
-    if (mostraTimePicker) {
+    if (mostraTimePickerPartita) {
         AlertDialog(
-            onDismissRequest = { mostraTimePicker = false },
-            title = { Text("Seleziona ora") },
+            onDismissRequest = { mostraTimePickerPartita = false },
+            title = { Text("Ora partita") },
             text = {
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    TimePicker(state = timePickerState)
+                    TimePicker(state = timePickerStatePartita)
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    val h = timePickerState.hour.toString().padStart(2, '0')
-                    val m = timePickerState.minute.toString().padStart(2, '0')
+                    val h = timePickerStatePartita.hour.toString().padStart(2, '0')
+                    val m = timePickerStatePartita.minute.toString().padStart(2, '0')
                     ora = "$h:$m"
-                    mostraTimePicker = false
+                    mostraTimePickerPartita = false
                 }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { mostraTimePicker = false }) { Text("Annulla") }
+                TextButton(onClick = { mostraTimePickerPartita = false }) { Text("Annulla") }
+            }
+        )
+    }
+
+    if (mostraTimePickerConvocazione) {
+        AlertDialog(
+            onDismissRequest = { mostraTimePickerConvocazione = false },
+            title = { Text("Ora convocazione") },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(state = timePickerStateConvocazione)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val h = timePickerStateConvocazione.hour.toString().padStart(2, '0')
+                    val m = timePickerStateConvocazione.minute.toString().padStart(2, '0')
+                    oraConvocazione = "$h:$m"
+                    mostraTimePickerConvocazione = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostraTimePickerConvocazione = false }) { Text("Annulla") }
             }
         )
     }
