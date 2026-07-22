@@ -293,9 +293,9 @@ class PersoneRepository {
         }
     }
 
-    suspend fun exportConvocazionePdf(token: String, id: Int): ApiResult<ByteArray> {
+    suspend fun exportConvocazionePdf(token: String, id: Int, includeCampo: Boolean = true): ApiResult<ByteArray> {
         return try {
-            val risposta = api.exportConvocazionePdf(ApiClient.bearer(token), id)
+            val risposta = api.exportConvocazionePdf(ApiClient.bearer(token), id, if (includeCampo) 1 else 0)
             if (risposta.isSuccessful) {
                 val bytes = risposta.body()?.bytes() ?: ByteArray(0)
                 ApiResult.Successo(bytes)
