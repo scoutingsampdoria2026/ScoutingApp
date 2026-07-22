@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Logout
@@ -56,6 +57,7 @@ import com.scoutingsampdoria.persone.ui.theme.SampColors
 fun HomeScreen(
     ruoloUtente: String?,
     onGestioneGiocatori: () -> Unit,
+    onConvocazioni: () -> Unit,
     onConfigurazione: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -205,6 +207,15 @@ fun HomeScreen(
                 icona = Icons.Filled.Groups,
                 coloreIcona = SampColors.Blu,
                 onClick = onGestioneGiocatori
+            )
+
+            // Pulsante Convocazioni
+            PulsanteModulo(
+                titolo = "Convocazioni",
+                descrizione = "Prepara convocazioni per le partite con distinta e disposizione tattica",
+                icona = Icons.Filled.EventNote,
+                coloreIcona = SampColors.Rosso,
+                onClick = onConvocazioni
             )
 
             // In futuro qui aggiungerai altri PulsanteModulo (es. Statistiche, Trainer, Report)
