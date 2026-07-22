@@ -143,4 +143,49 @@ interface PersoneApi {
         @Query("quick_report") quickReport: String? = null,
         @QueryMap extra: Map<String, String> = emptyMap()
     ): Response<okhttp3.ResponseBody>
+
+    // ---- Convocazioni ----
+    @GET("api/convocazioni")
+    suspend fun listaConvocazioni(
+        @Header("Authorization") token: String,
+        @Query("categoria") categoria: String? = null
+    ): Response<List<com.scoutingsampdoria.persone.data.model.Convocazione>>
+
+    @GET("api/convocazioni/{id}")
+    suspend fun dettaglioConvocazione(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Path("id") id: Int
+    ): Response<com.scoutingsampdoria.persone.data.model.Convocazione>
+
+    @POST("api/convocazioni")
+    suspend fun creaConvocazione(
+        @Header("Authorization") token: String,
+        @Body dati: com.scoutingsampdoria.persone.data.model.ConvocazioneCreaRequest
+    ): Response<com.scoutingsampdoria.persone.data.model.MessaggioResponse>
+
+    @retrofit2.http.PUT("api/convocazioni/{id}")
+    suspend fun aggiornaConvocazione(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Path("id") id: Int,
+        @Body dati: com.scoutingsampdoria.persone.data.model.ConvocazioneAggiornaRequest
+    ): Response<com.scoutingsampdoria.persone.data.model.MessaggioResponse>
+
+    @retrofit2.http.DELETE("api/convocazioni/{id}")
+    suspend fun eliminaConvocazione(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Path("id") id: Int
+    ): Response<com.scoutingsampdoria.persone.data.model.MessaggioResponse>
+
+    @retrofit2.http.PUT("api/convocazioni/{id}/giocatori")
+    suspend fun aggiornaGiocatoriConvocazione(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Path("id") id: Int,
+        @Body dati: com.scoutingsampdoria.persone.data.model.ConvocazioneGiocatoriRequest
+    ): Response<com.scoutingsampdoria.persone.data.model.MessaggioResponse>
+
+    @GET("api/convocazioni/{id}/export-pdf")
+    suspend fun exportConvocazionePdf(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Path("id") id: Int
+    ): Response<okhttp3.ResponseBody>
 }
