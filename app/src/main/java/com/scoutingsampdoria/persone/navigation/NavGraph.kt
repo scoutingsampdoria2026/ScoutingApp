@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.scoutingsampdoria.persone.ui.screens.ConfigScreen
+import com.scoutingsampdoria.persone.ui.screens.HomeScreen
 import com.scoutingsampdoria.persone.ui.screens.LoginScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonDetailScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonFormScreen
@@ -24,6 +25,7 @@ import com.scoutingsampdoria.persone.viewmodel.ViewModelFactory
 
 private object Rotte {
     const val LOGIN = "login"
+    const val HOME = "home"
     const val LISTA = "lista"
     const val DETTAGLIO = "dettaglio/{personaId}"
     const val NUOVA = "nuova"
@@ -43,8 +45,6 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
 
     var sessioneVerificata by remember { mutableStateOf(false) }
 
-    // Al primo avvio controlla se esiste già un token salvato, per non richiedere
-    // il login ogni volta che si riapre l'app.
     LaunchedEffect(Unit) {
         authViewModel.ripristinaSessione { haSessione ->
             sessioneVerificata = true
@@ -55,14 +55,29 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
 
     NavHost(
         navController = navController,
-        startDestination = if (authViewModel.loggato) Rotte.LISTA else Rotte.LOGIN
+        startDestination = if (authViewModel.loggato) Rotte.HOME else Rotte.LOGIN
     ) {
         composable(Rotte.LOGIN) {
             LoginScreen(
                 viewModel = authViewModel,
                 onLoginSuccesso = {
-                    navController.navigate(Rotte.LISTA) {
+                    navController.navigate(Rotte.HOME) {
                         popUpTo(Rotte.LOGIN) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(Rotte.HOME) {
+            HomeScreen(
+                ruoloUtente = authViewModel.ruolo,
+                onGestioneGiocatori = { navController.navigate(Rotte.LISTA) },
+                onConfigurazione = { navController.navigate(Rotte.CONFIG) },
+                onLogout = {
+                    authViewModel.logout {
+                        navController.navigate(Rotte.LOGIN) {
+                            popUpTo(0) { inclusive = true }
+                        }
                     }
                 }
             )
