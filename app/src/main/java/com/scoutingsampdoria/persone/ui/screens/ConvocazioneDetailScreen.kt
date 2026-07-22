@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -199,7 +201,7 @@ fun ConvocazioneDetailScreen(
                 when (tabSelezionato) {
                     0 -> TabConvocati(conv, viewModel, personeViewModel)
                     1 -> TabDistinta(conv, viewModel)
-                    2 -> TabCampo(conv)
+                    2 -> TabCampo(conv, viewModel)
                 }
             }
         }
@@ -553,10 +555,32 @@ private fun TabDistinta(convocazione: Convocazione, viewModel: ConvocazioniViewM
                     modulo = moduloScelto,
                     onCompletato = { }
                 )
-                // Aggiorna giocatori con nuovi numeri
+
+                // Numeri assegnati manualmente
+                val numeriManuali = numeriPerCasella
+                    .filter { it.value.isNotBlank() }
+                    .mapValues { it.value.toInt() }
+                val numeriUsati = numeriManuali.values.toMutableSet()
+
+                // Giocatori convocati senza numero manuale: assegnazione automatica alfabetica
+                val giocatoriSenzaNumero = convocazione.giocatori.orEmpty()
+                    .filter { it.personaId != null && (numeriManuali[it.id] == null) }
+                    .sortedWith(compareBy({ it.cognome ?: "" }, { it.nome ?: "" }))
+
+                // Prossimo numero libero da assegnare (partendo da 12)
+                val numeriPanchinaAssegnati = mutableMapOf<Int, Int>()
+                var prossimo = 12
+                giocatoriSenzaNumero.forEach { g ->
+                    while (prossimo in numeriUsati) prossimo++
+                    numeriPanchinaAssegnati[g.id!!] = prossimo
+                    numeriUsati.add(prossimo)
+                    prossimo++
+                }
+
+                // Aggiorna giocatori con nuovi numeri (manuali + automatici)
                 val giocatoriConNumeri = convocazione.giocatori.orEmpty().map { g ->
                     if (g.personaId != null) {
-                        val num = numeriPerCasella[g.id]?.toIntOrNull()
+                        val num = numeriManuali[g.id] ?: numeriPanchinaAssegnati[g.id]
                         g.copy(numero = num)
                     } else g
                 }
@@ -582,11 +606,19 @@ private fun TabDistinta(convocazione: Convocazione, viewModel: ConvocazioniViewM
 
 // ------------------- TAB CAMPO -------------------
 @Composable
-private fun TabCampo(convocazione: Convocazione) {
+private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewModel) {
     val modulo = convocazione.modulo
-    val giocatori = convocazione.giocatori.orEmpty()
+
+    // Giocatori titolari (numero 1-11) disponibili per il campo
+    val giocatoriTitolari = convocazione.giocatori.orEmpty()
         .filter { it.personaId != null && it.numero != null && it.numero in 1..11 }
-        .associateBy { it.numero!! }
+
+    // Stato locale: mappa posizione (numero di posizione nel modulo) -> id giocatore assegnato
+    // Se non ancora assegnato dall'utente, resta null
+    var assegnazioni by remember(convocazione.id, giocatoriTitolari.map { it.numero }) {
+        mutableStateOf(mutableMapOf<Int, Int?>())
+    }
+    var contatoreCambi by remember { mutableStateOf(0) }
 
     Column(modifier = Modifier
         .fillMaxSize()
@@ -608,104 +640,137 @@ private fun TabCampo(convocazione: Convocazione) {
             color = SampColors.Blu,
             fontWeight = FontWeight.Bold
         )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Tocca una posizione per scegliere il giocatore",
+            style = MaterialTheme.typography.labelSmall,
+            color = SampColors.TestoSecondario
+        )
         Spacer(Modifier.height(8.dp))
 
-        val posizioni = posizioniPerModulo(modulo)
+        // Posizioni del modulo, ordinate per Y (dalla porta all'attacco)
+        val posizioniModulo = posizioniPerModulo(modulo).entries.toList()
 
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2E7D5B)),
-            modifier = Modifier.fillMaxWidth().aspectRatio(0.75f)
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(0.75f)
         ) {
-            Canvas(modifier = Modifier.fillMaxSize().padding(8.dp)) {
-                val w = size.width
-                val h = size.height
+            val larghezzaTotale = maxWidth
+            val altezzaTotale = maxHeight
 
-                // Linee campo
-                drawRect(
-                    color = Color.White,
-                    topLeft = Offset(0f, 0f),
-                    size = Size(w, h),
-                    style = Stroke(width = 3f)
-                )
-                // Linea centrale
-                drawLine(
-                    color = Color.White,
-                    start = Offset(0f, h / 2),
-                    end = Offset(w, h / 2),
-                    strokeWidth = 3f
-                )
-                // Cerchio centrale
-                drawCircle(
-                    color = Color.White,
-                    radius = w * 0.13f,
-                    center = Offset(w / 2, h / 2),
-                    style = Stroke(width = 3f)
-                )
-                // Aree di rigore
-                val areaW = w * 0.55f
-                val areaH = h * 0.18f
-                drawRect(
-                    color = Color.White,
-                    topLeft = Offset((w - areaW) / 2, 0f),
-                    size = Size(areaW, areaH),
-                    style = Stroke(width = 3f)
-                )
-                drawRect(
-                    color = Color.White,
-                    topLeft = Offset((w - areaW) / 2, h - areaH),
-                    size = Size(areaW, areaH),
-                    style = Stroke(width = 3f)
-                )
+            // Sfondo campo
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2E7D5B)),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                    val w = size.width
+                    val h = size.height
+                    drawRect(color = Color.White, topLeft = Offset(0f, 0f), size = Size(w, h), style = Stroke(width = 3f))
+                    drawLine(color = Color.White, start = Offset(0f, h / 2), end = Offset(w, h / 2), strokeWidth = 3f)
+                    drawCircle(color = Color.White, radius = w * 0.13f, center = Offset(w / 2, h / 2), style = Stroke(width = 3f))
+                    val areaW = w * 0.55f
+                    val areaH = h * 0.18f
+                    drawRect(color = Color.White, topLeft = Offset((w - areaW) / 2, 0f), size = Size(areaW, areaH), style = Stroke(width = 3f))
+                    drawRect(color = Color.White, topLeft = Offset((w - areaW) / 2, h - areaH), size = Size(areaW, areaH), style = Stroke(width = 3f))
+                }
+            }
 
-                // Giocatori
-                posizioni.forEach { (numero, coord) ->
-                    val (xRel, yRel) = coord
-                    val x = xRel * w
-                    val y = (1 - yRel) * h  // inverto: 0=basso => attacchiamo verso alto
+            // Overlay cliccabili per ogni posizione del modulo
+            posizioniModulo.forEachIndexed { indice, (_, coord) ->
+                val (xRel, yRel) = coord
+                // Y=0 nostra porta (in basso), Y=1 attacco (in alto)
+                val xDp = larghezzaTotale * xRel
+                val yDp = altezzaTotale * (1 - yRel)
 
-                    val giocatore = giocatori[numero]
+                val larghezzaPallino = larghezzaTotale * 0.20f  // area larga per contenere cognome
+                val altezzaPallino = larghezzaTotale * 0.20f
+
+                val idGiocatoreQui = assegnazioni[indice]
+                val giocatore = giocatoriTitolari.firstOrNull { it.id == idGiocatoreQui }
+
+                var menuAperto by remember(indice, convocazione.id) { mutableStateOf(false) }
+
+                Box(
+                    modifier = Modifier
+                        .offset(
+                            x = xDp - larghezzaPallino / 2,
+                            y = yDp - altezzaPallino / 2
+                        )
+                        .size(larghezzaPallino, altezzaPallino)
+                        .clickable { menuAperto = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Cerchio con numero
                     val coloreCerchio = if (giocatore != null) Color(0xFF003D7A) else Color(0xFF888888)
+                    Box(
+                        modifier = Modifier
+                            .size(larghezzaTotale * 0.11f)
+                            .background(coloreCerchio, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = giocatore?.numero?.toString() ?: "?",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
 
-                    // Cerchio
-                    drawCircle(
-                        color = coloreCerchio,
-                        radius = w * 0.055f,
-                        center = Offset(x, y)
-                    )
-                    drawCircle(
-                        color = Color.White,
-                        radius = w * 0.055f,
-                        center = Offset(x, y),
-                        style = Stroke(width = 3f)
-                    )
-
-                    // Testo (usiamo native Canvas per il testo)
-                    drawContext.canvas.nativeCanvas.apply {
-                        val paint = android.graphics.Paint().apply {
-                            color = android.graphics.Color.WHITE
-                            textSize = w * 0.05f
-                            isFakeBoldText = true
-                            textAlign = android.graphics.Paint.Align.CENTER
-                            isAntiAlias = true
+                    // Cognome sotto il cerchio
+                    if (giocatore != null) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            Text(
+                                text = (giocatore.cognome ?: "").uppercase(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp)
+                            )
                         }
-                        drawText(numero.toString(), x, y + (w * 0.018f), paint)
+                    }
 
-                        // Cognome sotto
-                        if (giocatore != null) {
-                            val paintNome = android.graphics.Paint().apply {
-                                color = android.graphics.Color.WHITE
-                                textSize = w * 0.028f
-                                isFakeBoldText = true
-                                textAlign = android.graphics.Paint.Align.CENTER
-                                isAntiAlias = true
-                                setShadowLayer(4f, 0f, 0f, android.graphics.Color.BLACK)
-                            }
-                            drawText(
-                                (giocatore.cognome ?: "").uppercase().take(10),
-                                x,
-                                y + w * 0.09f,
-                                paintNome
+                    // Dropdown per scegliere giocatore
+                    DropdownMenu(
+                        expanded = menuAperto,
+                        onDismissRequest = { menuAperto = false }
+                    ) {
+                        // Opzione per liberare
+                        if (idGiocatoreQui != null) {
+                            DropdownMenuItem(
+                                text = { Text("— Rimuovi da qui —", fontWeight = FontWeight.Bold) },
+                                onClick = {
+                                    assegnazioni = assegnazioni.toMutableMap().apply { this[indice] = null }
+                                    contatoreCambi++
+                                    menuAperto = false
+                                }
+                            )
+                        }
+                        // Giocatori disponibili: quelli con numero 1-11 non ancora assegnati altrove
+                        val giaAssegnati = assegnazioni.values.filterNotNull().toSet()
+                        val disponibili = giocatoriTitolari.filter { it.id !in giaAssegnati || it.id == idGiocatoreQui }
+                        disponibili.sortedWith(compareBy({ it.numero }, { it.cognome })).forEach { g ->
+                            DropdownMenuItem(
+                                text = { Text("${g.numero}  ${g.cognome} ${g.nome}") },
+                                onClick = {
+                                    assegnazioni = assegnazioni.toMutableMap().apply { this[indice] = g.id }
+                                    contatoreCambi++
+                                    menuAperto = false
+                                }
+                            )
+                        }
+                        if (disponibili.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Nessun titolare disponibile", color = SampColors.TestoMuto) },
+                                onClick = { menuAperto = false }
                             )
                         }
                     }
@@ -715,7 +780,7 @@ private fun TabCampo(convocazione: Convocazione) {
 
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "Posizioni derivate dai numeri di maglia. Grigio = casella vuota.",
+            text = "Tocca un pallino per assegnare o cambiare il giocatore.",
             style = MaterialTheme.typography.labelSmall,
             color = SampColors.TestoSecondario,
             textAlign = TextAlign.Center,
