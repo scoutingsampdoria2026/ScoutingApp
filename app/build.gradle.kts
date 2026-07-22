@@ -19,10 +19,27 @@ android {
         buildConfigField("String", "BASE_URL", "\"https://scoutingsampdoria.pythonanywhere.com/\"")
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = file("scouting-release.jks")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("KEY_ALIAS") ?: ""
+                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Firma solo se il file keystore esiste (CI). In locale la build non
+            // fallisce ma produce un APK unsigned.
+            if (file("scouting-release.jks").exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
