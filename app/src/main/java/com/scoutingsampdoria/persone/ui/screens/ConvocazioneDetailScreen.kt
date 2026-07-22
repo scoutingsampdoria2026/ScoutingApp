@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
@@ -137,13 +138,37 @@ fun ConvocazioneDetailScreen(
                         }
                     },
                     actions = {
-                        IconButton(onClick = {
-                            viewModel.esportaConvocazionePdf(convocazioneId) { bytes ->
-                                condividiPdf(context, bytes, "distinta_$categoria.pdf")
+                        var menuPdfAperto by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { menuPdfAperto = true }) {
+                                Icon(Icons.Filled.PictureAsPdf, contentDescription = "Esporta PDF",
+                                    tint = MaterialTheme.colorScheme.onPrimary)
                             }
-                        }) {
-                            Icon(Icons.Filled.PictureAsPdf, contentDescription = "Esporta PDF",
-                                tint = MaterialTheme.colorScheme.onPrimary)
+                            DropdownMenu(
+                                expanded = menuPdfAperto,
+                                onDismissRequest = { menuPdfAperto = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("PDF Convocazione") },
+                                    leadingIcon = { Icon(Icons.Filled.Description, contentDescription = null) },
+                                    onClick = {
+                                        menuPdfAperto = false
+                                        viewModel.esportaConvocazionePdf(convocazioneId, includeCampo = false) { bytes ->
+                                            condividiPdf(context, bytes, "convocazione_$categoria.pdf")
+                                        }
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("PDF Conv. e Tattica") },
+                                    leadingIcon = { Icon(Icons.Filled.PictureAsPdf, contentDescription = null) },
+                                    onClick = {
+                                        menuPdfAperto = false
+                                        viewModel.esportaConvocazionePdf(convocazioneId, includeCampo = true) { bytes ->
+                                            condividiPdf(context, bytes, "distinta_$categoria.pdf")
+                                        }
+                                    }
+                                )
+                            }
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -614,10 +639,16 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
     val giocatoriTitolari = convocazione.giocatori.orEmpty()
         .filter { it.personaId != null && it.numero != null && it.numero in 1..11 }
 
-    // Stato locale: mappa posizione (numero di posizione nel modulo) -> id giocatore assegnato
-    // Se non ancora assegnato dall'utente, resta null
+    // Stato locale: mappa indice-posizione-nel-modulo -> id giocatore assegnato.
+    // Inizializzata dalla posizione_campo salvata sul server (se presente).
     var assegnazioni by remember(convocazione.id, giocatoriTitolari.map { it.numero }) {
-        mutableStateOf(mutableMapOf<Int, Int?>())
+        val iniziali = mutableMapOf<Int, Int?>()
+        giocatoriTitolari.forEach { g ->
+            if (g.posizioneCampo != null && g.id != null) {
+                iniziali[g.posizioneCampo] = g.id
+            }
+        }
+        mutableStateOf(iniziali)
     }
     var contatoreCambi by remember { mutableStateOf(0) }
 
@@ -801,6 +832,39 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
         )
 
         Spacer(Modifier.height(16.dp))
+
+        // Pulsante salva disposizione
+        Button(
+            onClick = {
+                // Ricostruisco la lista dei giocatori aggiornando posizione_campo per i titolari,
+                // e portando invariati i panchinari
+                val giocatoriAggiornati = convocazione.giocatori.orEmpty().map { g ->
+                    if (g.personaId != null && g.numero != null && g.numero in 1..11) {
+                        // Cerco l'indice-posizione in cui è stato piazzato questo giocatore
+                        val posizione = assegnazioni.entries.firstOrNull { it.value == g.id }?.key
+                        g.copy(posizioneCampo = posizione)
+                    } else if (g.personaId != null) {
+                        // Panchinari: mantengo eventuale posizione_campo esistente ma qui la azzero per pulizia
+                        g.copy(posizioneCampo = null)
+                    } else g
+                }
+                viewModel.aggiornaGiocatori(convocazione.id, giocatoriAggiornati) { }
+            },
+            enabled = contatoreCambi > 0 && !viewModel.caricamento,
+            colors = ButtonDefaults.buttonColors(containerColor = SampColors.Blu),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Filled.Save, contentDescription = null)
+            Spacer(Modifier.width(4.dp))
+            Text("Salva disposizione", color = Color.White)
+        }
+
+        viewModel.messaggio?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(it, color = SampColors.Success, style = MaterialTheme.typography.bodySmall)
+        }
+
+        Spacer(Modifier.height(24.dp))
     }
 }
 
