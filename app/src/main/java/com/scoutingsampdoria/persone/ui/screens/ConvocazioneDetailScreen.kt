@@ -549,6 +549,7 @@ private fun TabDistinta(convocazione: Convocazione, viewModel: ConvocazioniViewM
                     id = convocazione.id,
                     data = convocazione.data,
                     ora = convocazione.ora,
+                    oraConvocazione = convocazione.oraConvocazione,
                     impianto = convocazione.impianto,
                     squadraCasa = convocazione.squadraCasa,
                     squadraOspite = convocazione.squadraOspite,
@@ -685,8 +686,9 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
                 val xDp = larghezzaTotale * xRel
                 val yDp = altezzaTotale * (1 - yRel)
 
-                val larghezzaPallino = larghezzaTotale * 0.20f  // area larga per contenere cognome
-                val altezzaPallino = larghezzaTotale * 0.20f
+                // Area del pallino: larga per contenere cognomi anche lunghi
+                val larghezzaPallino = larghezzaTotale * 0.28f
+                val altezzaPallino = larghezzaTotale * 0.25f
 
                 val idGiocatoreQui = assegnazioni[indice]
                 val giocatore = giocatoriTitolari.firstOrNull { it.id == idGiocatoreQui }
@@ -703,37 +705,39 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
                         .clickable { menuAperto = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    // Cerchio con numero
-                    val coloreCerchio = if (giocatore != null) Color(0xFF003D7A) else Color(0xFF888888)
-                    Box(
-                        modifier = Modifier
-                            .size(larghezzaTotale * 0.11f)
-                            .background(coloreCerchio, CircleShape),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxSize()
                     ) {
-                        Text(
-                            text = giocatore?.numero?.toString() ?: "?",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                    }
-
-                    // Cognome sotto il cerchio
-                    if (giocatore != null) {
+                        // Cerchio con numero grande
+                        val coloreCerchio = if (giocatore != null) Color(0xFF003D7A) else Color(0xFF888888)
                         Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.BottomCenter
+                            modifier = Modifier
+                                .size(larghezzaTotale * 0.15f)
+                                .background(coloreCerchio, CircleShape),
+                            contentAlignment = Alignment.Center
                         ) {
+                            Text(
+                                text = giocatore?.numero?.toString() ?: "?",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 22.sp
+                            )
+                        }
+
+                        // Cognome sotto il cerchio (non tagliato)
+                        if (giocatore != null) {
+                            Spacer(Modifier.height(2.dp))
                             Text(
                                 text = (giocatore.cognome ?: "").uppercase(),
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
+                                fontSize = 13.sp,
                                 textAlign = TextAlign.Center,
                                 maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp)
+                                softWrap = false,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
@@ -743,7 +747,6 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
                         expanded = menuAperto,
                         onDismissRequest = { menuAperto = false }
                     ) {
-                        // Opzione per liberare
                         if (idGiocatoreQui != null) {
                             DropdownMenuItem(
                                 text = { Text("— Rimuovi da qui —", fontWeight = FontWeight.Bold) },
@@ -754,7 +757,6 @@ private fun TabCampo(convocazione: Convocazione, viewModel: ConvocazioniViewMode
                                 }
                             )
                         }
-                        // Giocatori disponibili: quelli con numero 1-11 non ancora assegnati altrove
                         val giaAssegnati = assegnazioni.values.filterNotNull().toSet()
                         val disponibili = giocatoriTitolari.filter { it.id !in giaAssegnati || it.id == idGiocatoreQui }
                         disponibili.sortedWith(compareBy({ it.numero }, { it.cognome })).forEach { g ->
