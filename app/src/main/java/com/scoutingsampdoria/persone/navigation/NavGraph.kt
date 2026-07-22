@@ -13,6 +13,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.scoutingsampdoria.persone.ui.screens.ConfigScreen
+import com.scoutingsampdoria.persone.ui.screens.ConvocazioneDetailScreen
+import com.scoutingsampdoria.persone.ui.screens.ConvocazioniHomeScreen
+import com.scoutingsampdoria.persone.ui.screens.ConvocazioniListaScreen
 import com.scoutingsampdoria.persone.ui.screens.HomeScreen
 import com.scoutingsampdoria.persone.ui.screens.LoginScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonDetailScreen
@@ -20,6 +23,7 @@ import com.scoutingsampdoria.persone.ui.screens.PersonFormScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonListScreen
 import com.scoutingsampdoria.persone.viewmodel.AuthViewModel
 import com.scoutingsampdoria.persone.viewmodel.ConfigViewModel
+import com.scoutingsampdoria.persone.viewmodel.ConvocazioniViewModel
 import com.scoutingsampdoria.persone.viewmodel.PersoneViewModel
 import com.scoutingsampdoria.persone.viewmodel.ViewModelFactory
 
@@ -31,9 +35,14 @@ private object Rotte {
     const val NUOVA = "nuova"
     const val MODIFICA = "modifica/{personaId}"
     const val CONFIG = "config"
+    const val CONVOCAZIONI_HOME = "convocazioni_home"
+    const val CONVOCAZIONI_LISTA = "convocazioni_lista/{categoria}"
+    const val CONVOCAZIONE_DETTAGLIO = "convocazione/{convocazioneId}/{categoria}"
 
     fun dettaglio(id: Int) = "dettaglio/$id"
     fun modifica(id: Int) = "modifica/$id"
+    fun convocazioniLista(categoria: String) = "convocazioni_lista/${java.net.URLEncoder.encode(categoria, "UTF-8")}"
+    fun convocazioneDettaglio(id: Int, categoria: String) = "convocazione/$id/${java.net.URLEncoder.encode(categoria, "UTF-8")}"
 }
 
 @Composable
@@ -42,6 +51,7 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
     val authViewModel: AuthViewModel = viewModel(factory = factory)
     val personeViewModel: PersoneViewModel = viewModel(factory = factory)
     val configViewModel: ConfigViewModel = viewModel(factory = factory)
+    val convocazioniViewModel: ConvocazioniViewModel = viewModel(factory = factory)
 
     var sessioneVerificata by remember { mutableStateOf(false) }
 
@@ -72,6 +82,7 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
             HomeScreen(
                 ruoloUtente = authViewModel.ruolo,
                 onGestioneGiocatori = { navController.navigate(Rotte.LISTA) },
+                onConvocazioni = { navController.navigate(Rotte.CONVOCAZIONI_HOME) },
                 onConfigurazione = { navController.navigate(Rotte.CONFIG) },
                 onLogout = {
                     authViewModel.logout {
@@ -80,6 +91,50 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
                         }
                     }
                 }
+            )
+        }
+
+        composable(Rotte.CONVOCAZIONI_HOME) {
+            ConvocazioniHomeScreen(
+                personeViewModel = personeViewModel,
+                convocazioniViewModel = convocazioniViewModel,
+                onIndietro = { navController.popBackStack() },
+                onCategoriaSelezionata = { cat -> navController.navigate(Rotte.convocazioniLista(cat)) }
+            )
+        }
+
+        composable(
+            route = Rotte.CONVOCAZIONI_LISTA,
+            arguments = listOf(navArgument("categoria") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val cat = java.net.URLDecoder.decode(
+                backStackEntry.arguments?.getString("categoria") ?: "", "UTF-8"
+            )
+            ConvocazioniListaScreen(
+                categoria = cat,
+                viewModel = convocazioniViewModel,
+                onIndietro = { navController.popBackStack() },
+                onApriConvocazione = { id -> navController.navigate(Rotte.convocazioneDettaglio(id, cat)) }
+            )
+        }
+
+        composable(
+            route = Rotte.CONVOCAZIONE_DETTAGLIO,
+            arguments = listOf(
+                navArgument("convocazioneId") { type = NavType.IntType },
+                navArgument("categoria") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getInt("convocazioneId") ?: return@composable
+            val cat = java.net.URLDecoder.decode(
+                backStackEntry.arguments?.getString("categoria") ?: "", "UTF-8"
+            )
+            ConvocazioneDetailScreen(
+                convocazioneId = id,
+                categoria = cat,
+                viewModel = convocazioniViewModel,
+                personeViewModel = personeViewModel,
+                onIndietro = { navController.popBackStack() }
             )
         }
 
