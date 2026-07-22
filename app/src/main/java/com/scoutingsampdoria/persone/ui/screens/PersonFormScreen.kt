@@ -136,10 +136,19 @@ fun PersonFormScreen(
                         Text("Campi personalizzati", fontWeight = FontWeight.Bold, color = SampColors.Blu)
                         Spacer(Modifier.height(8.dp))
                         viewModel.campiCustom.forEach { campo ->
-                            CampoTesto(
-                                etichetta = campo.nome,
-                                valore = valoriExtra[campo.nome] ?: ""
-                            ) { valoriExtra[campo.nome] = it }
+                            if (campo.nome.equals("RATING", ignoreCase = true)) {
+                                SelettoreStelle(
+                                    valore = valoriExtra[campo.nome]?.toIntOrNull() ?: 0,
+                                    onValoreCambiato = { nuovo ->
+                                        valoriExtra[campo.nome] = if (nuovo == 0) "" else nuovo.toString()
+                                    }
+                                )
+                            } else {
+                                CampoTesto(
+                                    etichetta = campo.nome,
+                                    valore = valoriExtra[campo.nome] ?: ""
+                                ) { valoriExtra[campo.nome] = it }
+                            }
                         }
                     }
                 }
@@ -194,4 +203,51 @@ private fun CampoTesto(etichetta: String, valore: String, onChange: (String) -> 
             .fillMaxWidth()
             .padding(vertical = 4.dp)
     )
+}
+
+@Composable
+private fun SelettoreStelle(valore: Int, onValoreCambiato: (Int) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "RATING",
+                style = MaterialTheme.typography.bodyMedium,
+                color = SampColors.TestoSecondario,
+                modifier = Modifier.weight(1f)
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                for (i in 1..5) {
+                    androidx.compose.material3.IconButton(
+                        onClick = {
+                            // Se si clicca sulla stella già selezionata, la si toglie
+                            onValoreCambiato(if (valore == i) i - 1 else i)
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        androidx.compose.material3.Icon(
+                            imageVector = if (i <= valore) androidx.compose.material.icons.Icons.Filled.Star
+                                          else androidx.compose.material.icons.Icons.Outlined.StarBorder,
+                            contentDescription = null,
+                            tint = if (i <= valore) SampColors.Warning else SampColors.TestoMuto,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = if (valore > 0) "$valore/5" else "-",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (valore > 0) SampColors.Warning else SampColors.TestoMuto
+                )
+            }
+        }
+    }
 }
