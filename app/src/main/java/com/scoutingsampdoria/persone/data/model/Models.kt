@@ -122,6 +122,7 @@ data class ConvocazioneGiocatore(
     @SerializedName("persona_id") val personaId: Int?,
     val numero: Int?,
     val ordine: Int,
+    @SerializedName("posizione_campo") val posizioneCampo: Int? = null,
     val cognome: String? = null,
     val nome: String? = null,
     val ruolo: String? = null
