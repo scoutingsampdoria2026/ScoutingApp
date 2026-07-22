@@ -460,6 +460,13 @@ private fun TabDistinta(convocazione: Convocazione, viewModel: ConvocazioniViewM
         Spacer(Modifier.height(8.dp))
 
         giocatoriConvocati.forEach { g ->
+            val numeriGiaUsati = numeriPerCasella
+                .filter { it.key != g.id && it.value.isNotBlank() }
+                .mapNotNull { it.value.toIntOrNull() }
+                .toSet()
+            val numeroCorrente = numeriPerCasella[g.id]?.toIntOrNull()
+            var menuNumeriAperto by remember(g.id) { mutableStateOf(false) }
+
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -470,19 +477,64 @@ private fun TabDistinta(convocazione: Convocazione, viewModel: ConvocazioniViewM
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f)
                 )
-                OutlinedTextField(
-                    value = numeriPerCasella[g.id] ?: "",
-                    onValueChange = { input ->
-                        val filtrato = input.filter { it.isDigit() }.take(2)
-                        numeriPerCasella = numeriPerCasella.toMutableMap().apply {
-                            this[g.id!!] = filtrato
+                Box {
+                    AssistChip(
+                        onClick = { menuNumeriAperto = true },
+                        label = {
+                            Text(
+                                text = numeroCorrente?.toString() ?: "N°",
+                                fontWeight = FontWeight.Bold
+                            )
+                        },
+                        trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
+                        colors = if (numeroCorrente != null)
+                            AssistChipDefaults.assistChipColors(
+                                containerColor = SampColors.BluNebbia,
+                                labelColor = SampColors.Blu
+                            )
+                        else AssistChipDefaults.assistChipColors(),
+                        modifier = Modifier.width(90.dp)
+                    )
+                    DropdownMenu(
+                        expanded = menuNumeriAperto,
+                        onDismissRequest = { menuNumeriAperto = false }
+                    ) {
+                        if (numeroCorrente != null) {
+                            DropdownMenuItem(
+                                text = { Text("— Rimuovi numero —", fontWeight = FontWeight.Bold) },
+                                onClick = {
+                                    numeriPerCasella = numeriPerCasella.toMutableMap().apply {
+                                        this[g.id!!] = ""
+                                    }
+                                    contatoreCambi++
+                                    menuNumeriAperto = false
+                                }
+                            )
                         }
-                        contatoreCambi++
-                    },
-                    label = { Text("N°") },
-                    singleLine = true,
-                    modifier = Modifier.width(90.dp)
-                )
+                        (1..30).filter { it !in numeriGiaUsati }.forEach { n ->
+                            DropdownMenuItem(
+                                text = {
+                                    val etichetta = when {
+                                        n == 1 -> "$n  (POR)"
+                                        n in 2..6 -> "$n  (DIF)"
+                                        n in listOf(7, 8, 10, 11) -> "$n  (CEN)"
+                                        n == 9 -> "$n  (ATT)"
+                                        n == 20 -> "$n  (ATT)"
+                                        else -> "$n"
+                                    }
+                                    Text(etichetta)
+                                },
+                                onClick = {
+                                    numeriPerCasella = numeriPerCasella.toMutableMap().apply {
+                                        this[g.id!!] = n.toString()
+                                    }
+                                    contatoreCambi++
+                                    menuNumeriAperto = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -533,7 +585,7 @@ private fun TabDistinta(convocazione: Convocazione, viewModel: ConvocazioniViewM
 private fun TabCampo(convocazione: Convocazione) {
     val modulo = convocazione.modulo
     val giocatori = convocazione.giocatori.orEmpty()
-        .filter { it.personaId != null && it.numero != null }
+        .filter { it.personaId != null && it.numero != null && it.numero in 1..11 }
         .associateBy { it.numero!! }
 
     Column(modifier = Modifier
@@ -680,7 +732,7 @@ private fun posizioniPerModulo(modulo: String): Map<Int, Pair<Float, Float>> {
             1 to (0.5f to 0.06f),
             2 to (0.85f to 0.22f), 3 to (0.15f to 0.22f), 4 to (0.63f to 0.20f), 5 to (0.37f to 0.20f),
             7 to (0.85f to 0.50f), 8 to (0.60f to 0.48f), 10 to (0.40f to 0.48f), 11 to (0.15f to 0.50f),
-            9 to (0.35f to 0.78f), 20 to (0.65f to 0.78f)
+            9 to (0.35f to 0.78f), 6 to (0.65f to 0.78f)
         )
         "4-3-3" -> mapOf(
             1 to (0.5f to 0.06f),
@@ -700,20 +752,20 @@ private fun posizioniPerModulo(modulo: String): Map<Int, Pair<Float, Float>> {
             2 to (0.80f to 0.22f), 5 to (0.5f to 0.20f), 3 to (0.20f to 0.22f),
             4 to (0.85f to 0.45f), 8 to (0.65f to 0.48f), 6 to (0.5f to 0.48f),
             10 to (0.35f to 0.48f), 11 to (0.15f to 0.45f),
-            9 to (0.4f to 0.78f), 20 to (0.6f to 0.78f)
+            9 to (0.4f to 0.78f), 7 to (0.6f to 0.78f)
         )
         "3-4-3" -> mapOf(
             1 to (0.5f to 0.06f),
             2 to (0.80f to 0.22f), 5 to (0.5f to 0.20f), 3 to (0.20f to 0.22f),
             7 to (0.85f to 0.48f), 8 to (0.62f to 0.48f), 10 to (0.38f to 0.48f), 11 to (0.15f to 0.48f),
-            9 to (0.5f to 0.78f), 20 to (0.25f to 0.75f), 6 to (0.75f to 0.75f)
+            9 to (0.5f to 0.78f), 4 to (0.25f to 0.75f), 6 to (0.75f to 0.75f)
         )
         "4-3-1-2" -> mapOf(
             1 to (0.5f to 0.06f),
             2 to (0.85f to 0.22f), 3 to (0.15f to 0.22f), 4 to (0.63f to 0.20f), 5 to (0.37f to 0.20f),
             6 to (0.25f to 0.42f), 8 to (0.5f to 0.42f), 7 to (0.75f to 0.42f),
             10 to (0.5f to 0.62f),
-            9 to (0.35f to 0.80f), 20 to (0.65f to 0.80f)
+            9 to (0.35f to 0.80f), 11 to (0.65f to 0.80f)
         )
         "4-4-1-1" -> mapOf(
             1 to (0.5f to 0.06f),
