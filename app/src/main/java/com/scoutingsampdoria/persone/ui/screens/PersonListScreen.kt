@@ -40,7 +40,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -60,6 +59,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -91,7 +91,6 @@ fun PersonListScreen(
         viewModel.caricaCampiCustom()
     }
 
-    // Conteggio filtri attivi (per il badge sull'icona)
     val filtriAttivi = listOfNotNull(
         viewModel.filtroRegione,
         viewModel.filtroRuolo,
@@ -124,6 +123,7 @@ fun PersonListScreen(
                         ) {
                             Text(
                                 text = "Scouting Sampdoria",
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center
                             )
@@ -239,11 +239,11 @@ fun PersonListScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
-            // Barra di ricerca + toggle filtri
+            // ----- Barra ricerca + filtri -----
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
@@ -255,17 +255,18 @@ fun PersonListScreen(
                     placeholder = { Text("Cerca giocatore...") },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedBorderColor = SampColors.Blu,
+                        unfocusedBorderColor = SampColors.Divisore
                     ),
                     modifier = Modifier.weight(1f)
                 )
 
                 Spacer(Modifier.width(8.dp))
 
-                // Bottone filtri con badge del numero di filtri attivi
                 Box {
                     IconButton(
                         onClick = { pannelloFiltriAperto = !pannelloFiltriAperto },
@@ -301,7 +302,13 @@ fun PersonListScreen(
                 }
             }
 
-            // Pannello filtri (espandibile)
+            // ----- Card Panoramica scouting -----
+            CardPanoramica(persone = viewModel.persone, totale = viewModel.totale)
+
+            // ----- Tab categorie scorrevoli -----
+            TabCategorieOrizzontali(viewModel = viewModel)
+
+            // ----- Pannello filtri (espandibile) -----
             if (pannelloFiltriAperto) {
                 PannelloFiltri(viewModel)
             }
@@ -357,11 +364,131 @@ fun PersonListScreen(
     }
 }
 
+/**
+ * Card "Panoramica scouting" con 4 statistiche a colpo d'occhio:
+ * Totali, Da vedere, Seguire, Monitorare.
+ */
+@Composable
+private fun CardPanoramica(persone: List<Persona>, totale: Int) {
+    val daVedere = persone.count { it.quickReport?.contains("vedere", ignoreCase = true) == true }
+    val seguire = persone.count { it.quickReport?.contains("seguire", ignoreCase = true) == true }
+    val monitorare = persone.count { it.quickReport?.contains("monitor", ignoreCase = true) == true }
+
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = SampColors.BluNebbia),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(vertical = 14.dp, horizontal = 12.dp)) {
+            Text(
+                text = "PANORAMICA SCOUTING",
+                style = MaterialTheme.typography.labelSmall,
+                color = SampColors.Blu,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                StatBox(numero = totale, etichetta = "Totali", colore = SampColors.Blu)
+                StatBox(numero = daVedere, etichetta = "Da vedere", colore = SampColors.Rosso)
+                StatBox(numero = seguire, etichetta = "Seguire", colore = SampColors.Warning)
+                StatBox(numero = monitorare, etichetta = "Monitor.", colore = SampColors.Success)
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatBox(numero: Int, etichetta: String, colore: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = numero.toString(),
+            style = MaterialTheme.typography.headlineMedium,
+            color = colore,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = etichetta,
+            style = MaterialTheme.typography.labelSmall,
+            color = SampColors.TestoSecondario
+        )
+    }
+}
+
+/**
+ * Riga scorrevole di chip categoria (Tutti + una per ogni valore di CATEGORIA
+ * presente nei dati). Cliccando applica/rimuove il filtro categoria.
+ */
+@Composable
+private fun TabCategorieOrizzontali(viewModel: PersoneViewModel) {
+    val categorie = viewModel.valoriExtra["CATEGORIA"].orEmpty()
+    if (categorie.isEmpty()) return
+
+    val categoriaSelezionata = viewModel.filtriExtra["CATEGORIA"]
+    val scrollState = rememberScrollState()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(scrollState)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        // Chip "Tutti"
+        ChipCategoria(
+            etichetta = "Tutti",
+            contatore = viewModel.totale,
+            selezionato = categoriaSelezionata == null,
+            onClick = { viewModel.impostaFiltroExtra("CATEGORIA", null) }
+        )
+        categorie.forEach { cat ->
+            val contatore = viewModel.persone.count { it.extra?.get("CATEGORIA") == cat }
+            ChipCategoria(
+                etichetta = cat,
+                contatore = if (categoriaSelezionata == cat) viewModel.totale else contatore,
+                selezionato = categoriaSelezionata == cat,
+                onClick = {
+                    if (categoriaSelezionata == cat) viewModel.impostaFiltroExtra("CATEGORIA", null)
+                    else viewModel.impostaFiltroExtra("CATEGORIA", cat)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChipCategoria(etichetta: String, contatore: Int, selezionato: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selezionato) SampColors.Blu else SampColors.Superficie)
+            .then(if (!selezionato) Modifier.background(color = SampColors.Superficie) else Modifier)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = etichetta,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (selezionato) Color.White else SampColors.Nero
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = contatore.toString(),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selezionato) Color.White.copy(alpha = 0.85f) else SampColors.TestoMuto
+        )
+    }
+}
+
 @Composable
 private fun PannelloFiltri(viewModel: PersoneViewModel) {
     Card(
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -372,7 +499,7 @@ private fun PannelloFiltri(viewModel: PersoneViewModel) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Filtri", fontWeight = FontWeight.Bold, color = SampColors.Blu)
+                Text("Filtri avanzati", fontWeight = FontWeight.Bold, color = SampColors.Blu)
                 Text(
                     "Azzera tutti",
                     style = MaterialTheme.typography.labelMedium,
@@ -382,34 +509,20 @@ private fun PannelloFiltri(viewModel: PersoneViewModel) {
             }
             Spacer(Modifier.height(8.dp))
 
-            // Campi standard
-            FiltroMenu(
-                etichetta = "Regione",
-                valoreSelezionato = viewModel.filtroRegione,
-                valoriDisponibili = viewModel.valoriRegione,
-                onSeleziona = { viewModel.impostaFiltro(regione = it) }
-            )
-            FiltroMenu(
-                etichetta = "Ruolo",
-                valoreSelezionato = viewModel.filtroRuolo,
-                valoriDisponibili = viewModel.valoriRuolo,
-                onSeleziona = { viewModel.impostaFiltro(ruolo = it) }
-            )
-            FiltroMenu(
-                etichetta = "Società",
-                valoreSelezionato = viewModel.filtroSocieta,
-                valoriDisponibili = viewModel.valoriSocieta,
-                onSeleziona = { viewModel.impostaFiltro(societa = it) }
-            )
-            FiltroMenu(
-                etichetta = "Quick report",
-                valoreSelezionato = viewModel.filtroQuickReport,
-                valoriDisponibili = viewModel.valoriQuickReport,
-                onSeleziona = { viewModel.impostaFiltro(quickReport = it) }
-            )
-
-            // Campi personalizzati
-            viewModel.campiCustom.forEach { campo ->
+            FiltroMenu("Regione", viewModel.filtroRegione, viewModel.valoriRegione) {
+                viewModel.impostaFiltro(regione = it)
+            }
+            FiltroMenu("Ruolo", viewModel.filtroRuolo, viewModel.valoriRuolo) {
+                viewModel.impostaFiltro(ruolo = it)
+            }
+            FiltroMenu("Società", viewModel.filtroSocieta, viewModel.valoriSocieta) {
+                viewModel.impostaFiltro(societa = it)
+            }
+            FiltroMenu("Quick report", viewModel.filtroQuickReport, viewModel.valoriQuickReport) {
+                viewModel.impostaFiltro(quickReport = it)
+            }
+            // Escludo CATEGORIA (già gestita dai tab in alto)
+            viewModel.campiCustom.filter { it.nome != "CATEGORIA" }.forEach { campo ->
                 val valori = viewModel.valoriExtra[campo.nome].orEmpty()
                 if (valori.isNotEmpty()) {
                     FiltroMenu(
@@ -432,13 +545,10 @@ private fun FiltroMenu(
     onSeleziona: (String?) -> Unit
 ) {
     if (valoriDisponibili.isEmpty()) return
-
     var menuAperto by remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -456,9 +566,7 @@ private fun FiltroMenu(
                         Icon(
                             Icons.Filled.Clear,
                             contentDescription = "Rimuovi",
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clickable { onSeleziona(null) }
+                            modifier = Modifier.size(16.dp).clickable { onSeleziona(null) }
                         )
                     } else {
                         Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
@@ -466,15 +574,12 @@ private fun FiltroMenu(
                 },
                 colors = if (valoreSelezionato != null)
                     AssistChipDefaults.assistChipColors(
-                        containerColor = SampColors.Blu.copy(alpha = 0.12f),
+                        containerColor = SampColors.BluNebbia,
                         labelColor = SampColors.Blu
                     )
                 else AssistChipDefaults.assistChipColors()
             )
-            DropdownMenu(
-                expanded = menuAperto,
-                onDismissRequest = { menuAperto = false }
-            ) {
+            DropdownMenu(expanded = menuAperto, onDismissRequest = { menuAperto = false }) {
                 DropdownMenuItem(
                     text = { Text("Tutti", fontWeight = FontWeight.Bold) },
                     onClick = {
@@ -498,7 +603,7 @@ private fun FiltroMenu(
 
 @Composable
 fun FasciaBlucerchiata(modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth().height(6.dp)) {
+    Row(modifier = modifier.fillMaxWidth().height(4.dp)) {
         Box(Modifier.weight(1f).fillMaxSize().background(SampColors.Bianco))
         Box(Modifier.weight(1f).fillMaxSize().background(SampColors.Rosso))
         Box(Modifier.weight(1f).fillMaxSize().background(SampColors.Nero))
@@ -511,19 +616,20 @@ private fun SchedaGiocatore(persona: Persona, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            .padding(horizontal = 16.dp, vertical = 5.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors = CardDefaults.cardColors(containerColor = SampColors.Superficie),
         onClick = onClick
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar circolare con iniziali
+            // Avatar iniziali
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(48.dp)
                     .background(SampColors.Blu, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -532,7 +638,7 @@ private fun SchedaGiocatore(persona: Persona, onClick: () -> Unit) {
                     text = iniziali.uppercase(),
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleSmall
                 )
             }
 
@@ -542,54 +648,53 @@ private fun SchedaGiocatore(persona: Persona, onClick: () -> Unit) {
                 Text(
                     text = "${persona.cognome} ${persona.nome}",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = SampColors.Nero
                 )
-                // Riga con società e regione
                 Text(
                     text = listOfNotNull(persona.societa, persona.regione)
                         .filter { it.isNotBlank() }
                         .joinToString(" · ")
                         .ifBlank { "-" },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = SampColors.TestoSecondario
                 )
-                // Riga aggiuntiva con data di nascita e categoria (dal campo custom 'CATEGORIA' o simile)
                 val dataNascita = persona.dataNascita?.let { formattaDataItaliana(it) }
                 val categoria = persona.extra?.entries?.firstOrNull {
                     it.key.equals("CATEGORIA", ignoreCase = true) ||
                     it.key.equals("CAT", ignoreCase = true)
                 }?.value
                 if (dataNascita != null || categoria != null) {
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (dataNascita != null) {
                             Icon(
                                 Icons.Filled.Cake,
                                 contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                modifier = Modifier.size(13.dp),
+                                tint = SampColors.TestoSecondario
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
                                 text = dataNascita,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MaterialTheme.typography.labelSmall,
+                                color = SampColors.TestoSecondario
                             )
                         }
                         if (dataNascita != null && categoria != null) {
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(Modifier.width(8.dp))
                         }
                         if (categoria != null) {
                             Box(
                                 modifier = Modifier
-                                    .background(SampColors.Blu.copy(alpha = 0.12f), RoundedCornerShape(6.dp))
+                                    .background(SampColors.BluNebbia, RoundedCornerShape(4.dp))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = categoria,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = SampColors.Blu,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
@@ -597,11 +702,10 @@ private fun SchedaGiocatore(persona: Persona, onClick: () -> Unit) {
                 }
             }
 
-            // Badge ruolo (POR, ATT, ecc.)
             persona.ruolo?.takeIf { it.isNotBlank() }?.let { ruolo ->
                 Box(
                     modifier = Modifier
-                        .background(SampColors.Rosso, RoundedCornerShape(8.dp))
+                        .background(SampColors.Rosso, RoundedCornerShape(6.dp))
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Text(
@@ -616,7 +720,6 @@ private fun SchedaGiocatore(persona: Persona, onClick: () -> Unit) {
     }
 }
 
-/** Converte "2010-05-15" in "15/05/2010" senza dipendenze aggiuntive. */
 private fun formattaDataItaliana(iso: String): String {
     return try {
         val parts = iso.split("-")
