@@ -1,6 +1,7 @@
 package com.scoutingsampdoria.persone.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -38,8 +41,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -320,6 +326,7 @@ private fun SchedaConvocazione(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DialogNuovaConvocazione(
     categoria: String,
@@ -331,6 +338,12 @@ private fun DialogNuovaConvocazione(
     var impianto by remember { mutableStateOf("") }
     var casa by remember { mutableStateOf("Sampdoria $categoria") }
     var ospite by remember { mutableStateOf("") }
+
+    var mostraDatePicker by remember { mutableStateOf(false) }
+    var mostraTimePicker by remember { mutableStateOf(false) }
+
+    val datePickerState = rememberDatePickerState()
+    val timePickerState = rememberTimePickerState(is24Hour = true)
 
     AlertDialog(
         onDismissRequest = onAnnulla,
@@ -344,27 +357,46 @@ private fun DialogNuovaConvocazione(
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(12.dp))
+
+                // Data (calendario)
                 OutlinedTextField(
-                    value = data,
-                    onValueChange = { data = it },
-                    label = { Text("Data (YYYY-MM-DD)") },
-                    placeholder = { Text("2026-08-15") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    value = data.ifBlank { "" }.let { if (it.isNotBlank()) formattaDataItaliana(it) else "" },
+                    onValueChange = { },
+                    readOnly = true,
+                    label = { Text("Data") },
+                    placeholder = { Text("Tocca per selezionare") },
+                    trailingIcon = {
+                        IconButton(onClick = { mostraDatePicker = true }) {
+                            Icon(Icons.Filled.CalendarToday, contentDescription = "Scegli data")
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { mostraDatePicker = true }
                 )
                 Spacer(Modifier.height(8.dp))
+
+                // Ora (orologio)
                 OutlinedTextField(
                     value = ora,
-                    onValueChange = { ora = it },
-                    label = { Text("Ora (HH:MM)") },
-                    placeholder = { Text("15:30") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    onValueChange = { },
+                    readOnly = true,
+                    label = { Text("Ora") },
+                    placeholder = { Text("Tocca per selezionare") },
+                    trailingIcon = {
+                        IconButton(onClick = { mostraTimePicker = true }) {
+                            Icon(Icons.Filled.Schedule, contentDescription = "Scegli ora")
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { mostraTimePicker = true }
                 )
                 Spacer(Modifier.height(8.dp))
+
                 OutlinedTextField(
                     value = impianto,
-                    onValueChange = { impianto = it },
+                    onValueChange = { impianto = titleCase(it) },
                     label = { Text("Impianto") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -372,7 +404,7 @@ private fun DialogNuovaConvocazione(
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = casa,
-                    onValueChange = { casa = it },
+                    onValueChange = { casa = titleCase(it) },
                     label = { Text("Squadra casa") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -380,7 +412,7 @@ private fun DialogNuovaConvocazione(
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = ospite,
-                    onValueChange = { ospite = it },
+                    onValueChange = { ospite = titleCase(it) },
                     label = { Text("Squadra ospite") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
@@ -399,6 +431,60 @@ private fun DialogNuovaConvocazione(
             TextButton(onClick = onAnnulla) { Text("Annulla") }
         }
     )
+
+    if (mostraDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { mostraDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val cal = java.util.Calendar.getInstance().apply { timeInMillis = millis }
+                        val y = cal.get(java.util.Calendar.YEAR)
+                        val m = (cal.get(java.util.Calendar.MONTH) + 1).toString().padStart(2, '0')
+                        val d = cal.get(java.util.Calendar.DAY_OF_MONTH).toString().padStart(2, '0')
+                        data = "$y-$m-$d"
+                    }
+                    mostraDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostraDatePicker = false }) { Text("Annulla") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (mostraTimePicker) {
+        AlertDialog(
+            onDismissRequest = { mostraTimePicker = false },
+            title = { Text("Seleziona ora") },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(state = timePickerState)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val h = timePickerState.hour.toString().padStart(2, '0')
+                    val m = timePickerState.minute.toString().padStart(2, '0')
+                    ora = "$h:$m"
+                    mostraTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { mostraTimePicker = false }) { Text("Annulla") }
+            }
+        )
+    }
+}
+
+/** Trasforma "sampdoria u13" -> "Sampdoria U13" (prima lettera maiuscola di ogni parola) */
+private fun titleCase(input: String): String {
+    return input.split(" ").joinToString(" ") { parola ->
+        if (parola.isEmpty()) parola
+        else parola.substring(0, 1).uppercase() + parola.substring(1)
+    }
 }
 
 private fun formattaDataItaliana(iso: String): String {
