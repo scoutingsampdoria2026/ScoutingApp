@@ -1,0 +1,336 @@
+package com.scoutingsampdoria.persone.ui.screens
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.scoutingsampdoria.persone.data.model.Convocazione
+import com.scoutingsampdoria.persone.ui.theme.SampColors
+import com.scoutingsampdoria.persone.viewmodel.ConvocazioniViewModel
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ConvocazioniListaScreen(
+    categoria: String,
+    viewModel: ConvocazioniViewModel,
+    onIndietro: () -> Unit,
+    onApriConvocazione: (Int) -> Unit
+) {
+    var mostraDialogNuova by remember { mutableStateOf(false) }
+
+    LaunchedEffect(categoria) {
+        viewModel.caricaConvocazioniPerCategoria(categoria)
+    }
+
+    Scaffold(
+        topBar = {
+            Column {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text("Convocazioni", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Text(categoria, style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onIndietro) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Indietro", tint = MaterialTheme.colorScheme.onPrimary)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+                FasciaBlucerchiata()
+            }
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { mostraDialogNuova = true },
+                containerColor = SampColors.Rosso,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "Nuova convocazione")
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            when {
+                viewModel.caricamento -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                viewModel.errore != null -> {
+                    Text(
+                        text = viewModel.errore ?: "",
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+                viewModel.convocazioni.isEmpty() -> {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Nessuna convocazione ancora",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = SampColors.TestoSecondario
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Premi il pulsante + per crearne una nuova",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SampColors.TestoMuto
+                        )
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        items(viewModel.convocazioni) { conv ->
+                            SchedaConvocazione(conv, onClick = { onApriConvocazione(conv.id) })
+                        }
+                        item { Spacer(Modifier.height(88.dp)) }
+                    }
+                }
+            }
+        }
+    }
+
+    if (mostraDialogNuova) {
+        DialogNuovaConvocazione(
+            categoria = categoria,
+            onAnnulla = { mostraDialogNuova = false },
+            onCrea = { data, ora, impianto, casa, ospite ->
+                mostraDialogNuova = false
+                viewModel.creaConvocazione(
+                    categoria = categoria,
+                    data = data.ifBlank { null },
+                    ora = ora.ifBlank { null },
+                    impianto = impianto.ifBlank { null },
+                    squadraCasa = casa.ifBlank { null },
+                    squadraOspite = ospite.ifBlank { null },
+                    modulo = null,
+                    onCreata = { id -> onApriConvocazione(id) }
+                )
+            }
+        )
+    }
+}
+
+@Composable
+private fun SchedaConvocazione(convocazione: Convocazione, onClick: () -> Unit) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Prima riga: squadre
+            val casa = convocazione.squadraCasa?.ifBlank { "Squadra casa" } ?: "Squadra casa"
+            val ospite = convocazione.squadraOspite?.ifBlank { "Squadra ospite" } ?: "Squadra ospite"
+            Text(
+                text = "$casa vs $ospite",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = SampColors.Blu
+            )
+            Spacer(Modifier.height(6.dp))
+
+            // Seconda riga: data + ora + impianto
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                convocazione.data?.takeIf { it.isNotBlank() }?.let {
+                    Icon(Icons.Filled.CalendarToday, contentDescription = null,
+                        modifier = Modifier.size(14.dp), tint = SampColors.TestoSecondario)
+                    Spacer(Modifier.width(4.dp))
+                    Text(formattaDataItaliana(it), style = MaterialTheme.typography.bodySmall,
+                        color = SampColors.TestoSecondario)
+                    Spacer(Modifier.width(12.dp))
+                }
+                convocazione.ora?.takeIf { it.isNotBlank() }?.let {
+                    Icon(Icons.Filled.Schedule, contentDescription = null,
+                        modifier = Modifier.size(14.dp), tint = SampColors.TestoSecondario)
+                    Spacer(Modifier.width(4.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = SampColors.TestoSecondario)
+                }
+            }
+
+            convocazione.impianto?.takeIf { it.isNotBlank() }?.let {
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.LocationOn, contentDescription = null,
+                        modifier = Modifier.size(14.dp), tint = SampColors.TestoSecondario)
+                    Spacer(Modifier.width(4.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = SampColors.TestoSecondario)
+                }
+            }
+
+            convocazione.modulo?.takeIf { it.isNotBlank() }?.let {
+                Spacer(Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .background(SampColors.BluNebbia, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        "Modulo $it",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SampColors.Blu,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DialogNuovaConvocazione(
+    categoria: String,
+    onAnnulla: () -> Unit,
+    onCrea: (data: String, ora: String, impianto: String, casa: String, ospite: String) -> Unit
+) {
+    var data by remember { mutableStateOf("") }
+    var ora by remember { mutableStateOf("") }
+    var impianto by remember { mutableStateOf("") }
+    var casa by remember { mutableStateOf("Sampdoria $categoria") }
+    var ospite by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onAnnulla,
+        title = { Text("Nuova convocazione", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text(
+                    "Categoria: $categoria",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SampColors.Blu,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = data,
+                    onValueChange = { data = it },
+                    label = { Text("Data (YYYY-MM-DD)") },
+                    placeholder = { Text("2026-08-15") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = ora,
+                    onValueChange = { ora = it },
+                    label = { Text("Ora (HH:MM)") },
+                    placeholder = { Text("15:30") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = impianto,
+                    onValueChange = { impianto = it },
+                    label = { Text("Impianto") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = casa,
+                    onValueChange = { casa = it },
+                    label = { Text("Squadra casa") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = ospite,
+                    onValueChange = { ospite = it },
+                    label = { Text("Squadra ospite") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onCrea(data, ora, impianto, casa, ospite) },
+                colors = ButtonDefaults.buttonColors(containerColor = SampColors.Blu)
+            ) {
+                Text("Crea", color = Color.White)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onAnnulla) { Text("Annulla") }
+        }
+    )
+}
+
+private fun formattaDataItaliana(iso: String): String {
+    return try {
+        val parts = iso.split("-")
+        if (parts.size == 3) "${parts[2]}/${parts[1]}/${parts[0]}" else iso
+    } catch (e: Exception) {
+        iso
+    }
+}
