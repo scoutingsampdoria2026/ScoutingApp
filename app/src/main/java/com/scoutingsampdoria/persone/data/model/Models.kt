@@ -106,6 +106,7 @@ data class Convocazione(
     val categoria: String,
     val data: String?,
     val ora: String?,
+    @SerializedName("ora_convocazione") val oraConvocazione: String? = null,
     val impianto: String?,
     @SerializedName("squadra_casa") val squadraCasa: String?,
     @SerializedName("squadra_ospite") val squadraOspite: String?,
@@ -130,6 +131,7 @@ data class ConvocazioneCreaRequest(
     val categoria: String,
     val data: String? = null,
     val ora: String? = null,
+    @SerializedName("ora_convocazione") val oraConvocazione: String? = null,
     val impianto: String? = null,
     @SerializedName("squadra_casa") val squadraCasa: String? = null,
     @SerializedName("squadra_ospite") val squadraOspite: String? = null,
@@ -141,6 +143,7 @@ data class ConvocazioneCreaRequest(
 data class ConvocazioneAggiornaRequest(
     val data: String? = null,
     val ora: String? = null,
+    @SerializedName("ora_convocazione") val oraConvocazione: String? = null,
     val impianto: String? = null,
     @SerializedName("squadra_casa") val squadraCasa: String? = null,
     @SerializedName("squadra_ospite") val squadraOspite: String? = null,
