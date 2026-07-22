@@ -241,6 +241,72 @@ class PersoneRepository {
         }
     }
 
+    // ---- Convocazioni ----
+    suspend fun listaConvocazioni(token: String, categoria: String? = null): ApiResult<List<com.scoutingsampdoria.persone.data.model.Convocazione>> {
+        return try {
+            gestisciRisposta(api.listaConvocazioni(ApiClient.bearer(token), categoria))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun dettaglioConvocazione(token: String, id: Int): ApiResult<com.scoutingsampdoria.persone.data.model.Convocazione> {
+        return try {
+            gestisciRisposta(api.dettaglioConvocazione(ApiClient.bearer(token), id))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun creaConvocazione(token: String, dati: com.scoutingsampdoria.persone.data.model.ConvocazioneCreaRequest): ApiResult<com.scoutingsampdoria.persone.data.model.MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.creaConvocazione(ApiClient.bearer(token), dati))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun aggiornaConvocazione(token: String, id: Int, dati: com.scoutingsampdoria.persone.data.model.ConvocazioneAggiornaRequest): ApiResult<com.scoutingsampdoria.persone.data.model.MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.aggiornaConvocazione(ApiClient.bearer(token), id, dati))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun eliminaConvocazione(token: String, id: Int): ApiResult<com.scoutingsampdoria.persone.data.model.MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.eliminaConvocazione(ApiClient.bearer(token), id))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun aggiornaGiocatoriConvocazione(token: String, id: Int, giocatori: List<com.scoutingsampdoria.persone.data.model.ConvocazioneGiocatore>): ApiResult<com.scoutingsampdoria.persone.data.model.MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.aggiornaGiocatoriConvocazione(
+                ApiClient.bearer(token), id,
+                com.scoutingsampdoria.persone.data.model.ConvocazioneGiocatoriRequest(giocatori)
+            ))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun exportConvocazionePdf(token: String, id: Int): ApiResult<ByteArray> {
+        return try {
+            val risposta = api.exportConvocazionePdf(ApiClient.bearer(token), id)
+            if (risposta.isSuccessful) {
+                val bytes = risposta.body()?.bytes() ?: ByteArray(0)
+                ApiResult.Successo(bytes)
+            } else {
+                ApiResult.Errore("Errore ${risposta.code()}", risposta.code())
+            }
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
     private fun <T> gestisciRisposta(risposta: Response<T>): ApiResult<T> {
         return if (risposta.isSuccessful && risposta.body() != null) {
             ApiResult.Successo(risposta.body()!!)
