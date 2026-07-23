@@ -1,11 +1,15 @@
 package com.scoutingsampdoria.persone.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -21,6 +25,8 @@ import com.scoutingsampdoria.persone.ui.screens.LoginScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonDetailScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonFormScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonListScreen
+import com.scoutingsampdoria.persone.util.MonitorInattivita
+import com.scoutingsampdoria.persone.util.tracciaInterazione
 import com.scoutingsampdoria.persone.viewmodel.AuthViewModel
 import com.scoutingsampdoria.persone.viewmodel.ConfigViewModel
 import com.scoutingsampdoria.persone.viewmodel.ConvocazioniViewModel
@@ -63,10 +69,29 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
 
     if (!sessioneVerificata) return
 
-    NavHost(
-        navController = navController,
-        startDestination = if (authViewModel.loggato) Rotte.HOME else Rotte.LOGIN
+    // Tracker inattività: si aggiorna a ogni tocco. Se supera 30 min → logoff automatico.
+    var ultimaInterazione by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    // Il monitor gira solo quando l'utente è loggato
+    if (authViewModel.loggato) {
+        MonitorInattivita(ultimaInterazione) {
+            authViewModel.logout {
+                navController.navigate(Rotte.LOGIN) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .tracciaInterazione { ultimaInterazione = System.currentTimeMillis() }
     ) {
+        NavHost(
+            navController = navController,
+            startDestination = if (authViewModel.loggato) Rotte.HOME else Rotte.LOGIN
+        ) {
         composable(Rotte.LOGIN) {
             LoginScreen(
                 viewModel = authViewModel,
@@ -212,5 +237,6 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
                 }
             )
         }
+    }
     }
 }
