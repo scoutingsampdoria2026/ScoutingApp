@@ -214,4 +214,28 @@ interface PersoneApi {
         @Header("Authorization") token: String,
         @retrofit2.http.Path("id") id: Int
     ): Response<MessaggioResponse>
+
+    @GET("api/provini/statistiche")
+    suspend fun statisticheProvini(
+        @Header("Authorization") token: String
+    ): Response<com.scoutingsampdoria.persone.data.model.StatisticheProvini>
+
+    @GET("api/provini")
+    suspend fun elencoProviniGlobale(
+        @Header("Authorization") token: String,
+        @Query("categoria") categoria: String? = null,
+        @Query("data") data: String? = null,
+        @Query("solo_compilati") soloCompilati: Int? = null
+    ): Response<List<com.scoutingsampdoria.persone.data.model.Provino>>
+
+    @GET("api/provini/categorie")
+    suspend fun categorieProvini(
+        @Header("Authorization") token: String
+    ): Response<List<String>>
+
+    @GET("api/provini/date")
+    suspend fun dateProvini(
+        @Header("Authorization") token: String,
+        @Query("categoria") categoria: String? = null
+    ): Response<List<String>>
 }
