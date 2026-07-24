@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.Clear
@@ -79,6 +80,7 @@ fun PersonListScreen(
     onPersonaClick: (Int) -> Unit,
     onNuovaPersona: () -> Unit,
     onConfigurazione: () -> Unit,
+    onIndietro: () -> Unit,
     onLogout: () -> Unit
 ) {
     var ricerca by remember { mutableStateOf("") }
@@ -136,6 +138,13 @@ fun PersonListScreen(
                         }
                     },
                     actions = {
+                        IconButton(onClick = onIndietro) {
+                            Icon(
+                                Icons.Filled.ArrowBack,
+                                contentDescription = "Torna alla home",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
                         if (isAdmin) {
                             var menuImpostazioniAperto by remember { mutableStateOf(false) }
                             var mostraDialogHelp by remember { mutableStateOf(false) }
