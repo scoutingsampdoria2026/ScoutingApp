@@ -20,17 +20,20 @@ import com.scoutingsampdoria.persone.ui.screens.ConfigScreen
 import com.scoutingsampdoria.persone.ui.screens.ConvocazioneDetailScreen
 import com.scoutingsampdoria.persone.ui.screens.ConvocazioniHomeScreen
 import com.scoutingsampdoria.persone.ui.screens.ConvocazioniListaScreen
+import com.scoutingsampdoria.persone.ui.screens.ElencoProviniScreen
 import com.scoutingsampdoria.persone.ui.screens.HomeScreen
 import com.scoutingsampdoria.persone.ui.screens.LoginScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonDetailScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonFormScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonListScreen
+import com.scoutingsampdoria.persone.ui.screens.ProvinoDetailScreen
 import com.scoutingsampdoria.persone.util.MonitorInattivita
 import com.scoutingsampdoria.persone.util.tracciaInterazione
 import com.scoutingsampdoria.persone.viewmodel.AuthViewModel
 import com.scoutingsampdoria.persone.viewmodel.ConfigViewModel
 import com.scoutingsampdoria.persone.viewmodel.ConvocazioniViewModel
 import com.scoutingsampdoria.persone.viewmodel.PersoneViewModel
+import com.scoutingsampdoria.persone.viewmodel.ProviniViewModel
 import com.scoutingsampdoria.persone.viewmodel.ViewModelFactory
 
 private object Rotte {
@@ -44,11 +47,15 @@ private object Rotte {
     const val CONVOCAZIONI_HOME = "convocazioni_home"
     const val CONVOCAZIONI_LISTA = "convocazioni_lista/{categoria}"
     const val CONVOCAZIONE_DETTAGLIO = "convocazione/{convocazioneId}/{categoria}"
+    const val ELENCO_PROVINI = "provini/{personaId}"
+    const val DETTAGLIO_PROVINO = "provino/{provinoId}"
 
     fun dettaglio(id: Int) = "dettaglio/$id"
     fun modifica(id: Int) = "modifica/$id"
     fun convocazioniLista(categoria: String) = "convocazioni_lista/${java.net.URLEncoder.encode(categoria, "UTF-8")}"
     fun convocazioneDettaglio(id: Int, categoria: String) = "convocazione/$id/${java.net.URLEncoder.encode(categoria, "UTF-8")}"
+    fun elencoProvini(personaId: Int) = "provini/$personaId"
+    fun dettaglioProvino(provinoId: Int) = "provino/$provinoId"
 }
 
 @Composable
@@ -58,6 +65,7 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
     val personeViewModel: PersoneViewModel = viewModel(factory = factory)
     val configViewModel: ConfigViewModel = viewModel(factory = factory)
     val convocazioniViewModel: ConvocazioniViewModel = viewModel(factory = factory)
+    val proviniViewModel: ProviniViewModel = viewModel(factory = factory)
 
     var sessioneVerificata by remember { mutableStateOf(false) }
 
@@ -188,13 +196,45 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
             PersonDetailScreen(
                 personaId = id,
                 viewModel = personeViewModel,
+                proviniViewModel = proviniViewModel,
                 ruoloUtente = authViewModel.ruolo,
                 onIndietro = { navController.popBackStack() },
                 onModifica = { navController.navigate(Rotte.modifica(id)) },
+                onApriElencoProvini = { personaId ->
+                    navController.navigate(Rotte.elencoProvini(personaId))
+                },
                 onEliminato = {
                     navController.popBackStack(Rotte.LISTA, inclusive = false)
                     personeViewModel.caricaLista()
                 }
+            )
+        }
+
+        composable(
+            route = Rotte.ELENCO_PROVINI,
+            arguments = listOf(navArgument("personaId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getInt("personaId") ?: return@composable
+            ElencoProviniScreen(
+                personaId = id,
+                personeViewModel = personeViewModel,
+                proviniViewModel = proviniViewModel,
+                onIndietro = { navController.popBackStack() },
+                onApriProvino = { provinoId ->
+                    navController.navigate(Rotte.dettaglioProvino(provinoId))
+                }
+            )
+        }
+
+        composable(
+            route = Rotte.DETTAGLIO_PROVINO,
+            arguments = listOf(navArgument("provinoId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getInt("provinoId") ?: return@composable
+            ProvinoDetailScreen(
+                provinoId = id,
+                proviniViewModel = proviniViewModel,
+                onIndietro = { navController.popBackStack() }
             )
         }
 
