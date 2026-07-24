@@ -5,10 +5,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.scoutingsampdoria.persone.auth.TokenManager
-import com.scoutingsampdoria.persone.data.model.ApiResult
+import com.scoutingsampdoria.persone.data.TokenManager
 import com.scoutingsampdoria.persone.data.model.Provino
 import com.scoutingsampdoria.persone.data.model.ProvinoAggiornaRequest
+import com.scoutingsampdoria.persone.repository.ApiResult
 import com.scoutingsampdoria.persone.repository.PersoneRepository
 import kotlinx.coroutines.launch
 
