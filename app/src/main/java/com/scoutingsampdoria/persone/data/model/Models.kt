@@ -155,3 +155,29 @@ data class ConvocazioneAggiornaRequest(
 data class ConvocazioneGiocatoriRequest(
     val giocatori: List<ConvocazioneGiocatore>
 )
+
+data class Provino(
+    val id: Int,
+    @SerializedName("persona_id") val personaId: Int,
+    @SerializedName("convocazione_id") val convocazioneId: Int,
+    val data: String? = null,
+    val ora: String? = null,
+    val impianto: String? = null,
+    val presenza: String? = null,
+    val giudizio: Int? = null,
+    val note: String? = null,
+    val cognome: String? = null,
+    val nome: String? = null,
+    val ruolo: String? = null,
+    @SerializedName("squadra_casa") val squadraCasa: String? = null,
+    @SerializedName("squadra_ospite") val squadraOspite: String? = null,
+    val categoria: String? = null,
+    @SerializedName("creato_il") val creatoIl: String? = null,
+    @SerializedName("aggiornato_il") val aggiornatoIl: String? = null
+)
+
+data class ProvinoAggiornaRequest(
+    val presenza: String? = null,
+    val giudizio: Int? = null,
+    val note: String? = null
+)
