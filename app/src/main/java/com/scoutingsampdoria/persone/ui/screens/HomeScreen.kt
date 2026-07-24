@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Settings
@@ -56,8 +57,10 @@ import com.scoutingsampdoria.persone.ui.theme.SampColors
 @Composable
 fun HomeScreen(
     ruoloUtente: String?,
+    statistiche: com.scoutingsampdoria.persone.data.model.StatisticheProvini?,
     onGestioneGiocatori: () -> Unit,
     onConvocazioni: () -> Unit,
+    onProvini: () -> Unit,
     onConfigurazione: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -218,6 +221,12 @@ fun HomeScreen(
                 onClick = onConvocazioni
             )
 
+            // Pulsante Provini con statistiche riassuntive
+            CardProviniHome(
+                statistiche = statistiche,
+                onClick = onProvini
+            )
+
             // In futuro qui aggiungerai altri PulsanteModulo (es. Statistiche, Trainer, Report)
         }
     }
@@ -319,4 +328,117 @@ private fun PulsanteModulo(
             )
         }
     }
+}
+
+@Composable
+private fun CardProviniHome(
+    statistiche: com.scoutingsampdoria.persone.data.model.StatisticheProvini?,
+    onClick: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Riga principale con icona + titolo + chevron
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(SampColors.Success.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Assignment,
+                        contentDescription = null,
+                        tint = SampColors.Success,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Provini",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = SampColors.Blu
+                    )
+                    Text(
+                        text = "Panoramica prove giocatori",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SampColors.TestoSecondario
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = SampColors.TestoMuto
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Riga statistiche (o messaggio se non ancora caricate)
+            if (statistiche != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    StatVoce(
+                        valore = statistiche.totaleProvini.toString(),
+                        etichetta = "Totali",
+                        colore = SampColors.Blu
+                    )
+                    Divisore()
+                    StatVoce(
+                        valore = statistiche.giocatoriConProvino.toString(),
+                        etichetta = "Giocatori",
+                        colore = SampColors.Success
+                    )
+                    Divisore()
+                    StatVoce(
+                        valore = String.format("%.2f", statistiche.mediaPerGiocatore),
+                        etichetta = "Media",
+                        colore = SampColors.Rosso
+                    )
+                }
+            } else {
+                Text(
+                    text = "Caricamento statistiche...",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SampColors.TestoMuto,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatVoce(valore: String, etichetta: String, colore: androidx.compose.ui.graphics.Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = valore,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = colore
+        )
+        Text(
+            text = etichetta,
+            style = MaterialTheme.typography.labelSmall,
+            color = SampColors.TestoSecondario
+        )
+    }
+}
+
+@Composable
+private fun Divisore() {
+    Box(
+        modifier = Modifier
+            .size(width = 1.dp, height = 40.dp)
+            .background(SampColors.TestoMuto.copy(alpha = 0.2f))
+    )
 }
