@@ -189,4 +189,29 @@ interface PersoneApi {
         @retrofit2.http.Path("id") id: Int,
         @Query("include_campo") includeCampo: Int = 1
     ): Response<okhttp3.ResponseBody>
+
+    @GET("api/persone/{id}/provini")
+    suspend fun listaProviniPersona(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Path("id") id: Int
+    ): Response<List<com.scoutingsampdoria.persone.data.model.Provino>>
+
+    @GET("api/provini/{id}")
+    suspend fun dettaglioProvino(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Path("id") id: Int
+    ): Response<com.scoutingsampdoria.persone.data.model.Provino>
+
+    @PUT("api/provini/{id}")
+    suspend fun aggiornaProvino(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Path("id") id: Int,
+        @Body req: com.scoutingsampdoria.persone.data.model.ProvinoAggiornaRequest
+    ): Response<MessaggioResponse>
+
+    @DELETE("api/provini/{id}")
+    suspend fun eliminaProvino(
+        @Header("Authorization") token: String,
+        @retrofit2.http.Path("id") id: Int
+    ): Response<MessaggioResponse>
 }
