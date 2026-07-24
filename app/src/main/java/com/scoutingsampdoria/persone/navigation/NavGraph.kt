@@ -27,6 +27,7 @@ import com.scoutingsampdoria.persone.ui.screens.PersonDetailScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonFormScreen
 import com.scoutingsampdoria.persone.ui.screens.PersonListScreen
 import com.scoutingsampdoria.persone.ui.screens.ProvinoDetailScreen
+import com.scoutingsampdoria.persone.ui.screens.ProviniDashboardScreen
 import com.scoutingsampdoria.persone.util.MonitorInattivita
 import com.scoutingsampdoria.persone.util.tracciaInterazione
 import com.scoutingsampdoria.persone.viewmodel.AuthViewModel
@@ -49,6 +50,7 @@ private object Rotte {
     const val CONVOCAZIONE_DETTAGLIO = "convocazione/{convocazioneId}/{categoria}"
     const val ELENCO_PROVINI = "provini/{personaId}"
     const val DETTAGLIO_PROVINO = "provino/{provinoId}"
+    const val PROVINI_DASHBOARD = "provini_dashboard"
 
     fun dettaglio(id: Int) = "dettaglio/$id"
     fun modifica(id: Int) = "modifica/$id"
@@ -112,10 +114,16 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
         }
 
         composable(Rotte.HOME) {
+            // Carica statistiche appena si arriva sulla home
+            LaunchedEffect(Unit) {
+                proviniViewModel.caricaStatistiche()
+            }
             HomeScreen(
                 ruoloUtente = authViewModel.ruolo,
+                statistiche = proviniViewModel.statistiche,
                 onGestioneGiocatori = { navController.navigate(Rotte.LISTA) },
                 onConvocazioni = { navController.navigate(Rotte.CONVOCAZIONI_HOME) },
+                onProvini = { navController.navigate(Rotte.PROVINI_DASHBOARD) },
                 onConfigurazione = { navController.navigate(Rotte.CONFIG) },
                 onLogout = {
                     authViewModel.logout {
@@ -123,6 +131,16 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
+                }
+            )
+        }
+
+        composable(Rotte.PROVINI_DASHBOARD) {
+            ProviniDashboardScreen(
+                proviniViewModel = proviniViewModel,
+                onIndietro = { navController.popBackStack() },
+                onApriProvino = { provinoId ->
+                    navController.navigate(Rotte.dettaglioProvino(provinoId))
                 }
             )
         }
