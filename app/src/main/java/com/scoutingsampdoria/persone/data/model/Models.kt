@@ -181,3 +181,10 @@ data class ProvinoAggiornaRequest(
     val giudizio: Int? = null,
     val note: String? = null
 )
+
+data class StatisticheProvini(
+    @SerializedName("totale_provini") val totaleProvini: Int,
+    @SerializedName("giocatori_con_provino") val giocatoriConProvino: Int,
+    @SerializedName("totale_giocatori") val totaleGiocatori: Int,
+    @SerializedName("media_per_giocatore") val mediaPerGiocatore: Double
+)
