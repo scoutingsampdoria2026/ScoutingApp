@@ -307,6 +307,45 @@ class PersoneRepository {
         }
     }
 
+    // ------------------- PROVINI -------------------
+
+    suspend fun listaProviniPersona(token: String, personaId: Int):
+            ApiResult<List<com.scoutingsampdoria.persone.data.model.Provino>> {
+        return try {
+            gestisciRisposta(api.listaProviniPersona(ApiClient.bearer(token), personaId))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun dettaglioProvino(token: String, id: Int):
+            ApiResult<com.scoutingsampdoria.persone.data.model.Provino> {
+        return try {
+            gestisciRisposta(api.dettaglioProvino(ApiClient.bearer(token), id))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun aggiornaProvino(
+        token: String, id: Int,
+        req: com.scoutingsampdoria.persone.data.model.ProvinoAggiornaRequest
+    ): ApiResult<MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.aggiornaProvino(ApiClient.bearer(token), id, req))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun eliminaProvino(token: String, id: Int): ApiResult<MessaggioResponse> {
+        return try {
+            gestisciRisposta(api.eliminaProvino(ApiClient.bearer(token), id))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
     private fun <T> gestisciRisposta(risposta: Response<T>): ApiResult<T> {
         return if (risposta.isSuccessful && risposta.body() != null) {
             ApiResult.Successo(risposta.body()!!)
