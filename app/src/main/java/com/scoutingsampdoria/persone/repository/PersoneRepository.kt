@@ -346,6 +346,52 @@ class PersoneRepository {
         }
     }
 
+    suspend fun statisticheProvini(token: String):
+            ApiResult<com.scoutingsampdoria.persone.data.model.StatisticheProvini> {
+        return try {
+            gestisciRisposta(api.statisticheProvini(ApiClient.bearer(token)))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun elencoProviniGlobale(
+        token: String,
+        categoria: String? = null,
+        data: String? = null,
+        soloCompilati: Boolean = false
+    ): ApiResult<List<com.scoutingsampdoria.persone.data.model.Provino>> {
+        return try {
+            gestisciRisposta(api.elencoProviniGlobale(
+                ApiClient.bearer(token),
+                categoria = categoria?.takeIf { it.isNotBlank() },
+                data = data?.takeIf { it.isNotBlank() },
+                soloCompilati = if (soloCompilati) 1 else null
+            ))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun categorieProvini(token: String): ApiResult<List<String>> {
+        return try {
+            gestisciRisposta(api.categorieProvini(ApiClient.bearer(token)))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
+    suspend fun dateProvini(token: String, categoria: String? = null): ApiResult<List<String>> {
+        return try {
+            gestisciRisposta(api.dateProvini(
+                ApiClient.bearer(token),
+                categoria?.takeIf { it.isNotBlank() }
+            ))
+        } catch (e: Exception) {
+            ApiResult.Errore("Impossibile contattare il server: ${e.message}")
+        }
+    }
+
     private fun <T> gestisciRisposta(risposta: Response<T>): ApiResult<T> {
         return if (risposta.isSuccessful && risposta.body() != null) {
             ApiResult.Successo(risposta.body()!!)
