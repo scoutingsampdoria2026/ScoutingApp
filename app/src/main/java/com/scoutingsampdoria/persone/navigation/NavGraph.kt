@@ -178,6 +178,7 @@ fun ScoutingNavGraph(factory: ViewModelFactory) {
                 onPersonaClick = { id -> navController.navigate(Rotte.dettaglio(id)) },
                 onNuovaPersona = { navController.navigate(Rotte.NUOVA) },
                 onConfigurazione = { navController.navigate(Rotte.CONFIG) },
+                onIndietro = { navController.popBackStack() },
                 onLogout = {
                     authViewModel.logout {
                         navController.navigate(Rotte.LOGIN) {
