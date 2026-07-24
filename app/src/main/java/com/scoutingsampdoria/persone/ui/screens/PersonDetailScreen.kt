@@ -19,7 +19,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
@@ -55,15 +57,18 @@ import androidx.compose.ui.unit.dp
 import com.scoutingsampdoria.persone.data.model.Persona
 import com.scoutingsampdoria.persone.ui.theme.SampColors
 import com.scoutingsampdoria.persone.viewmodel.PersoneViewModel
+import com.scoutingsampdoria.persone.viewmodel.ProviniViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PersonDetailScreen(
     personaId: Int,
     viewModel: PersoneViewModel,
+    proviniViewModel: ProviniViewModel,
     ruoloUtente: String?,
     onIndietro: () -> Unit,
     onModifica: (Int) -> Unit,
+    onApriElencoProvini: (Int) -> Unit,
     onEliminato: () -> Unit
 ) {
     var mostraConfermaElimina by remember { mutableStateOf(false) }
@@ -72,6 +77,7 @@ fun PersonDetailScreen(
     LaunchedEffect(personaId) {
         viewModel.caricaDettaglio(personaId)
         viewModel.caricaCampiCustom()
+        proviniViewModel.caricaProviniPersona(personaId)
     }
 
     val puoModificare = ruoloUtente == "admin" || ruoloUtente == "editor"
@@ -147,7 +153,11 @@ fun PersonDetailScreen(
                         // ---- Contenuto tab ----
                         Box(modifier = Modifier.padding(16.dp)) {
                             when (tabSelezionato) {
-                                0 -> SezioneInfo(persona)
+                                0 -> SezioneInfo(
+                                    persona = persona,
+                                    numeroProvini = proviniViewModel.provini.size,
+                                    onApriProvini = { onApriElencoProvini(personaId) }
+                                )
                                 1 -> SezioneCampiCustom(persona, viewModel)
                             }
                         }
@@ -305,7 +315,11 @@ private fun TabInfo(tabSelezionato: Int, onTabCambiato: (Int) -> Unit) {
 }
 
 @Composable
-private fun SezioneInfo(persona: Persona) {
+private fun SezioneInfo(
+    persona: Persona,
+    numeroProvini: Int = 0,
+    onApriProvini: () -> Unit = {}
+) {
     Column {
         // Griglia 2x2 di card info
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -358,6 +372,48 @@ private fun SezioneInfo(persona: Persona) {
                         fontWeight = FontWeight.SemiBold
                     )
                 }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+        // Card provini (sempre visibile, con conteggio)
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = SampColors.BluNebbia),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            onClick = onApriProvini,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Assignment,
+                    contentDescription = null,
+                    tint = SampColors.Blu,
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "PROVINI",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SampColors.Blu,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (numeroProvini == 0) "Nessun provino"
+                               else "$numeroProvini provin${if (numeroProvini == 1) "o" else "i"}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SampColors.Nero
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = null,
+                    tint = SampColors.TestoMuto
+                )
             }
         }
     }
